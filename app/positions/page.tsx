@@ -9,14 +9,12 @@ type Position = {
   strategyId: string;
   botName: string;
   symbol: string;
-  market: string;
   side: "long" | "short";
   entryPrice: number;
   entryTs: string;
   size: number;
   stopPrice: number;
   targetPrice: number;
-  atr: number;
   status: "open" | "closed";
   exitPrice?: number;
   exitTs?: string;
@@ -33,14 +31,11 @@ type Stats = {
   closedCount: number;
   totalPnlUsd: number;
   winRate: number | null;
-  avgWinUsd: number | null;
-  avgLossUsd: number | null;
-  expectancy: number | null;
 };
 
 type ApiResponse = { stats: Stats; open: Position[]; closed: Position[] };
 
-/** Adaptive precision: $43,250 · $6.48 · $0.1560 · $0.00000279 */
+// ── formatting ─────────────────────────────────────────────────────────────
 const fmtPrice = (n: number) => {
   if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
   if (n >= 1) return n.toFixed(2);
@@ -55,244 +50,187 @@ const fmtUsd = (n: number) =>
 const fmtWhen = (ts: string) =>
   new Date(ts).toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
-function timeAgo(ts: string): string {
+function ago(ts: string): string {
   const h = (Date.now() - new Date(ts).getTime()) / 3.6e6;
-  if (h < 1) return `${Math.max(1, Math.round(h * 60))}m ago`;
-  if (h < 48) return `${Math.round(h)}h ago`;
-  return `${Math.round(h / 24)}d ago`;
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))} dk`;
+  if (h < 48) return `${Math.round(h)} sa`;
+  return `${Math.round(h / 24)} gün`;
 }
 
-/** Visual price band: stop ── entry ── target with a live price dot. */
-function RiskBar({ p }: { p: Position }) {
-  // Normalize so stop is always left edge, target right edge
-  const lo = Math.min(p.stopPrice, p.targetPrice);
-  const hi = Math.max(p.stopPrice, p.targetPrice);
-  const range = hi - lo;
-  if (range <= 0) return null;
-  const pct = (v: number) => Math.min(100, Math.max(0, ((v - lo) / range) * 100));
-  const stopAtLeft = p.stopPrice < p.targetPrice;
+function held(a: string, b?: string): string {
+  if (!b) return "—";
+  const h = (new Date(b).getTime() - new Date(a).getTime()) / 3.6e6;
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))} dk`;
+  if (h < 48) return `${Math.round(h)} sa`;
+  return `${Math.round(h / 24)} gün`;
+}
 
-  return (
-    <div>
-      <div className="relative h-2 w-full rounded bg-surface-2">
-        <div className={`absolute inset-y-0 w-[30%] ${stopAtLeft ? "left-0 rounded-l bg-danger/25" : "right-0 rounded-r bg-danger/25"}`} />
-        <div className={`absolute inset-y-0 w-[30%] ${stopAtLeft ? "right-0 rounded-r bg-green/25" : "left-0 rounded-l bg-green/25"}`} />
-        <div className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-fg/70" style={{ left: `${pct(p.entryPrice)}%` }} />
-        {p.currentPrice != null && (
-          <div
-            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-bg bg-cyan"
-            style={{ left: `${pct(p.currentPrice)}%` }}
-          />
-        )}
-      </div>
-      <div className="mt-1 flex justify-between text-[9px] text-fg-mute tabular">
-        {stopAtLeft ? (
-          <span className="text-danger/70">SL {fmtPrice(p.stopPrice)}</span>
-        ) : (
-          <span className="text-green/70">TP {fmtPrice(p.targetPrice)}</span>
-        )}
-        <span>entry {fmtPrice(p.entryPrice)}</span>
-        {stopAtLeft ? (
-          <span className="text-green/70">TP {fmtPrice(p.targetPrice)}</span>
-        ) : (
-          <span className="text-danger/70">SL {fmtPrice(p.stopPrice)}</span>
-        )}
-      </div>
-    </div>
+// ── small pieces ───────────────────────────────────────────────────────────
+function SideBadge({ side }: { side: "long" | "short" }) {
+  return side === "long" ? (
+    <span className="inline-flex w-16 justify-center border border-green/40 bg-green/10 py-0.5 text-[10px] tracking-wider text-green">▲ LONG</span>
+  ) : (
+    <span className="inline-flex w-16 justify-center border border-danger/40 bg-danger/10 py-0.5 text-[10px] tracking-wider text-danger">▼ SHORT</span>
   );
 }
 
-const REASON_LABEL: Record<string, { text: string; cls: string }> = {
-  stop:   { text: "STOP HIT",   cls: "border-danger/40 bg-danger/10 text-danger" },
-  target: { text: "TARGET HIT", cls: "border-green/40 bg-green/10 text-green" },
-  signal: { text: "FLIP",       cls: "border-cyan/40 bg-cyan/10 text-cyan" },
-  time:   { text: "TIME OUT",   cls: "border-amber/40 bg-amber/10 text-amber" },
-  manual: { text: "MANUAL",     cls: "border-border-2 bg-surface text-fg-dim" },
+function Pnl({ usd, pct, big = false }: { usd: number | null | undefined; pct: number | null | undefined; big?: boolean }) {
+  if (usd == null) return <span className="text-fg-mute">—</span>;
+  const cls = usd >= 0 ? "text-green" : "text-danger";
+  return (
+    <span className={`${cls} tabular ${big ? "text-base" : ""}`}>
+      {fmtUsd(usd)}
+      {pct != null && <span className="ml-1 text-[10px] opacity-60">{pct >= 0 ? "+" : ""}{pct.toFixed(1)}%</span>}
+    </span>
+  );
+}
+
+const OUTCOME: Record<string, { text: string; cls: string }> = {
+  target: { text: "HEDEF TUTTU", cls: "border-green/40 bg-green/10 text-green" },
+  stop:   { text: "STOP OLDU",   cls: "border-danger/40 bg-danger/10 text-danger" },
+  signal: { text: "SİNYAL DÖNDÜ", cls: "border-cyan/40 bg-cyan/10 text-cyan" },
+  time:   { text: "SÜRE DOLDU",  cls: "border-amber/40 bg-amber/10 text-amber" },
+  manual: { text: "MANUEL",      cls: "border-border-2 text-fg-dim" },
 };
 
+// ── page ───────────────────────────────────────────────────────────────────
 export default function PositionsPage() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     const load = () =>
       fetch("/api/positions")
         .then((r) => r.json() as Promise<ApiResponse>)
-        .then((d) => { setData(d); setUpdatedAt(new Date()); setLoading(false); })
+        .then((d) => { setData(d); setLoading(false); })
         .catch(() => setLoading(false));
     load();
-    const id = setInterval(load, 30_000); // live refresh every 30s
+    const id = setInterval(load, 30_000);
     return () => clearInterval(id);
   }, []);
 
-  const s = data?.stats;
-  const openSorted = data ? [...data.open].sort((a, b) => (b.livePnlUsd ?? -1e9) - (a.livePnlUsd ?? -1e9)) : [];
-  const liveTotal = openSorted.reduce((sum, p) => sum + (p.livePnlUsd ?? 0), 0);
+  const open = data ? [...data.open].sort((a, b) => (b.livePnlUsd ?? -1e9) - (a.livePnlUsd ?? -1e9)) : [];
+  const liveTotal = open.reduce((s, p) => s + (p.livePnlUsd ?? 0), 0);
 
   return (
-    <main className="hud-scanlines relative min-h-screen bg-bg">
-      <div className="hud-grid absolute inset-0 opacity-40" />
-      <div className="relative z-10 mx-auto max-w-6xl px-6 py-8">
+    <main className="relative min-h-screen bg-bg">
+      <div className="relative z-10 mx-auto max-w-5xl px-6 py-8">
+        <div className="mb-10"><SiteNav active="/positions" /></div>
 
-        <div className="mb-8"><SiteNav active="/positions" /></div>
-
-        <div className="mb-6 border-b border-border pb-4">
-          <h1 className="font-serif text-4xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
-            Live Positions
-          </h1>
-          <p className="mt-1 text-sm text-fg-dim">
-            Every open trade, marked to the latest price · stops at 2×ATR, targets at 4×ATR
-          </p>
-          {updatedAt && (
-            <p className="mt-1 flex items-center gap-1.5 text-[10px] tracking-widest text-green">
-              <span className="blink inline-block h-1.5 w-1.5 rounded-full bg-green" />
-              LIVE · auto-refresh 30s · updated {updatedAt.toLocaleTimeString()}
-            </p>
-          )}
+        {/* ── summary: only the 3 numbers that matter ── */}
+        <div className="mb-10 grid grid-cols-3 gap-4">
+          <div>
+            <div className="text-[11px] tracking-widest text-fg-mute">AÇIK POZİSYON</div>
+            <div className="mt-1 text-3xl text-fg tabular">{data?.stats.openCount ?? "—"}</div>
+          </div>
+          <div>
+            <div className="text-[11px] tracking-widest text-fg-mute">AÇIK K/Z (CANLI)</div>
+            <div className={`mt-1 text-3xl tabular ${liveTotal >= 0 ? "text-green" : "text-danger"}`}>
+              {data ? fmtUsd(liveTotal) : "—"}
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] tracking-widest text-fg-mute">GERÇEKLEŞEN K/Z</div>
+            <div className={`mt-1 text-3xl tabular ${(data?.stats.totalPnlUsd ?? 0) >= 0 ? "text-green" : "text-danger"}`}>
+              {data ? fmtUsd(data.stats.totalPnlUsd) : "—"}
+            </div>
+          </div>
         </div>
 
-        {/* portfolio stats */}
-        {s && (
-          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {[
-              { label: "OPEN TRADES", value: String(s.openCount), tone: "text-cyan" },
-              { label: "LIVE P&L (OPEN)", value: fmtUsd(liveTotal), tone: liveTotal >= 0 ? "text-green" : "text-danger" },
-              { label: "REALIZED P&L", value: fmtUsd(s.totalPnlUsd), tone: s.totalPnlUsd >= 0 ? "text-green" : "text-danger" },
-              { label: "CLOSED TRADES", value: String(s.closedCount), tone: "text-fg" },
-              { label: "WIN RATE", value: s.winRate !== null ? `${(s.winRate * 100).toFixed(0)}%` : "—", tone: s.winRate !== null && s.winRate >= 0.5 ? "text-green" : "text-fg" },
-              { label: "EXPECTANCY / TRADE", value: s.expectancy !== null ? fmtUsd(s.expectancy) : "—", tone: s.expectancy !== null && s.expectancy >= 0 ? "text-green" : "text-danger" },
-            ].map((c) => (
-              <div key={c.label} className="border border-border bg-surface/30 px-4 py-3">
-                <div className="text-[10px] tracking-widest text-fg-mute">{c.label}</div>
-                <div className={`mt-1 text-xl tabular ${c.tone}`}>{c.value}</div>
+        {loading && <div className="py-20 text-center text-sm text-fg-dim">Yükleniyor…</div>}
+
+        {/* ── open positions ── */}
+        {data && (
+          <section className="mb-12">
+            <h2 className="mb-1 font-serif text-2xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
+              Açık Pozisyonlar
+            </h2>
+            <p className="mb-4 text-[11px] text-fg-dim">
+              30 saniyede bir yenilenir · stop = giriş − 2×ATR · hedef = giriş + 4×ATR
+            </p>
+
+            {open.length === 0 ? (
+              <div className="border border-border bg-surface/20 px-6 py-10 text-center text-sm text-fg-dim">
+                Şu an açık pozisyon yok — botlar saatte bir tarıyor, yenisi açıldığında burada görünür.
               </div>
-            ))}
-          </div>
-        )}
-
-        {loading && <div className="py-20 text-center text-sm text-fg-dim">Loading positions…</div>}
-
-        {/* open positions — card per trade for readability */}
-        {data && openSorted.length > 0 && (
-          <div className="mb-10">
-            <div className="mb-3 flex items-baseline justify-between">
-              <span className="text-[11px] tracking-widest text-fg-mute">OPEN POSITIONS ({openSorted.length})</span>
-              <span className="text-[10px] text-fg-mute">sorted by live P&L · cyan dot = current price</span>
-            </div>
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {openSorted.map((p) => {
-                const pnl = p.livePnlUsd;
-                return (
-                  <Link
-                    key={p.id}
-                    href={`/strategy/${p.strategyId}`}
-                    className="group border border-border bg-surface/20 p-4 transition-colors hover:border-border-2 hover:bg-surface/40"
-                  >
-                    <div className="flex items-center justify-between">
+            ) : (
+              <div className="divide-y divide-border/60 border border-border">
+                {open.map((p) => (
+                  <Link key={p.id} href={`/strategy/${p.strategyId}`}
+                    className="block px-5 py-4 transition-colors hover:bg-surface/40">
+                    {/* line 1: what + how much */}
+                    <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <span className={`border px-2 py-0.5 text-[10px] tracking-wider ${p.side === "long" ? "border-green/40 bg-green/10 text-green" : "border-danger/40 bg-danger/10 text-danger"}`}>
-                          {p.side === "long" ? "▲ LONG" : "▼ SHORT"}
-                        </span>
-                        <span className="text-sm text-fg group-hover:text-cyan transition-colors">{p.symbol}</span>
-                        <span className="text-[11px] text-fg-dim">{p.botName}</span>
+                        <SideBadge side={p.side} />
+                        <span className="text-[15px] text-fg">{p.symbol}</span>
+                        <span className="text-[11px] text-fg-mute">{p.botName}</span>
                       </div>
-                      <div className="text-right">
-                        {pnl != null ? (
-                          <>
-                            <div className={`text-base tabular ${pnl >= 0 ? "text-green" : "text-danger"}`}>{fmtUsd(pnl)}</div>
-                            <div className={`text-[10px] tabular ${pnl >= 0 ? "text-green/70" : "text-danger/70"}`}>
-                              {(p.livePnlPct ?? 0) >= 0 ? "+" : ""}{p.livePnlPct}%
-                            </div>
-                          </>
-                        ) : (
-                          <span className="text-fg-mute">—</span>
-                        )}
-                      </div>
+                      <Pnl usd={p.livePnlUsd} pct={p.livePnlPct} big />
                     </div>
-
-                    <div className="mt-2 text-[11px] text-fg-dim tabular">
-                      {p.side === "long" ? "LONG" : "SHORT"} @ <span className="text-fg">{fmtPrice(p.entryPrice)}</span>
-                      <span className="text-fg-mute"> · {fmtWhen(p.entryTs)} ({timeAgo(p.entryTs)})</span>
-                    </div>
-
-                    <div className="mt-3"><RiskBar p={p} /></div>
-
-                    <div className="mt-3 flex items-center justify-between text-[10px] tabular">
-                      <span className="text-danger/80">
-                        stop olursa −${Math.round(Math.abs(p.entryPrice - p.stopPrice) / p.entryPrice * p.size).toLocaleString()}
-                      </span>
-                      <span className="text-fg-mute">size ${p.size.toLocaleString()} · now {p.currentPrice != null ? fmtPrice(p.currentPrice) : "—"}</span>
-                      <span className="text-green/80">
-                        TP tutarsa +${Math.round(Math.abs(p.targetPrice - p.entryPrice) / p.entryPrice * p.size).toLocaleString()}
-                      </span>
+                    {/* line 2: the whole story in one calm row */}
+                    <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-[11px] tabular sm:grid-cols-5">
+                      <span className="text-fg-mute">giriş <span className="text-fg-dim">{fmtPrice(p.entryPrice)}</span></span>
+                      <span className="text-fg-mute">şimdi <span className="text-fg">{p.currentPrice != null ? fmtPrice(p.currentPrice) : "—"}</span></span>
+                      <span className="text-danger/70">stop {fmtPrice(p.stopPrice)}</span>
+                      <span className="text-green/70">hedef {fmtPrice(p.targetPrice)}</span>
+                      <span className="text-fg-mute">{fmtWhen(p.entryTs)} · {ago(p.entryTs)} önce</span>
                     </div>
                   </Link>
-                );
-              })}
-            </div>
-          </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
-        {data && data.open.length === 0 && !loading && (
-          <div className="mb-8 border border-border bg-surface/20 px-6 py-8 text-center text-sm text-fg-dim">
-            No open positions. The bots run every 15 minutes — new trades appear here automatically.
-          </div>
-        )}
-
-        {/* closed positions — full trade story */}
+        {/* ── trade history ── */}
         {data && data.closed.length > 0 && (
-          <div>
-            <div className="mb-3 text-[11px] tracking-widest text-fg-mute">
-              TRADE HISTORY (last {data.closed.length})
-            </div>
-            <div className="grid grid-cols-1 gap-2">
+          <section>
+            <h2 className="mb-1 font-serif text-2xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
+              Geçmiş İşlemler
+            </h2>
+            <p className="mb-4 text-[11px] text-fg-dim">
+              Son {data.closed.length} işlem · kazanma oranı{" "}
+              {data.stats.winRate != null ? `${Math.round(data.stats.winRate * 100)}%` : "—"}
+            </p>
+
+            <div className="divide-y divide-border/60 border border-border">
               {[...data.closed].reverse().map((p) => {
-                const reason = REASON_LABEL[p.closeReason ?? ""] ?? { text: "—", cls: "text-fg-dim" };
-                const win = (p.pnlUsd ?? 0) >= 0;
-                const heldH = p.exitTs ? (new Date(p.exitTs).getTime() - new Date(p.entryTs).getTime()) / 3.6e6 : null;
-                const held = heldH == null ? "—" : heldH < 1 ? `${Math.max(1, Math.round(heldH * 60))}dk` : heldH < 48 ? `${Math.round(heldH)}sa` : `${Math.round(heldH / 24)}g`;
+                const o = OUTCOME[p.closeReason ?? ""] ?? { text: "—", cls: "text-fg-dim" };
                 return (
                   <Link key={p.id} href={`/strategy/${p.strategyId}`}
-                    className="group border border-border bg-surface/20 px-4 py-3 transition-colors hover:border-border-2 hover:bg-surface/40">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                    className="block px-5 py-3.5 transition-colors hover:bg-surface/40">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <span className={`border px-1.5 py-0.5 text-[9px] tracking-wider ${p.side === "long" ? "border-green/40 bg-green/10 text-green" : "border-danger/40 bg-danger/10 text-danger"}`}>
-                          {p.side === "long" ? "▲ LONG" : "▼ SHORT"}
-                        </span>
-                        <span className="text-[13px] text-fg group-hover:text-cyan transition-colors">{p.symbol}</span>
-                        <span className="text-[11px] text-fg-dim">{p.botName}</span>
+                        <SideBadge side={p.side} />
+                        <span className="text-[14px] text-fg">{p.symbol}</span>
+                        <span className="text-[11px] text-fg-mute">{p.botName}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className={`inline-block border px-2 py-0.5 text-[9px] tracking-wider ${reason.cls}`}>{reason.text}</span>
-                        <span className={`text-sm tabular ${win ? "text-green" : "text-danger"}`}>
-                          {p.pnlUsd != null ? fmtUsd(p.pnlUsd) : "—"}
-                          {p.pnlPct != null && (
-                            <span className="ml-1 text-[10px] opacity-70">({p.pnlPct >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%)</span>
-                          )}
-                        </span>
+                        <span className={`hidden border px-2 py-0.5 text-[9px] tracking-wider sm:inline-block ${o.cls}`}>{o.text}</span>
+                        <Pnl usd={p.pnlUsd} pct={p.pnlPct} />
                       </div>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-fg-mute tabular">
-                      <span>giriş <span className="text-fg-dim">{fmtPrice(p.entryPrice)}</span> · {fmtWhen(p.entryTs)}</span>
-                      <span>→</span>
-                      <span>çıkış <span className="text-fg-dim">{p.exitPrice != null ? fmtPrice(p.exitPrice) : "—"}</span>{p.exitTs ? ` · ${fmtWhen(p.exitTs)}` : ""}</span>
-                      <span>süre {held}</span>
-                      <span className="text-danger/60">SL {fmtPrice(p.stopPrice)}</span>
-                      <span className="text-green/60">TP {fmtPrice(p.targetPrice)}</span>
-                      <span>size ${p.size.toLocaleString()}</span>
+                    <div className="mt-1.5 text-[11px] text-fg-mute tabular">
+                      {fmtPrice(p.entryPrice)} → {p.exitPrice != null ? fmtPrice(p.exitPrice) : "—"}
+                      <span className="mx-2 text-border-2">|</span>
+                      {fmtWhen(p.entryTs)} → {p.exitTs ? fmtWhen(p.exitTs) : "—"}
+                      <span className="mx-2 text-border-2">|</span>
+                      {held(p.entryTs, p.exitTs)} tutuldu
+                      <span className="sm:hidden"> · {o.text}</span>
                     </div>
                   </Link>
                 );
               })}
             </div>
-          </div>
-        )}
 
-        <p className="mt-4 text-[10px] text-fg-mute">
-          FLIP = ters sinyal geldi · STOP HIT = 2×ATR zarar kes · TARGET HIT = 4×ATR kâr al · TIME OUT = 30 gün maks. tutma
-        </p>
+            <p className="mt-4 text-[10px] leading-relaxed text-fg-mute">
+              <span className="text-green">HEDEF TUTTU</span> = kâr al seviyesine ulaştı ·{" "}
+              <span className="text-danger">STOP OLDU</span> = zarar kes çalıştı ·{" "}
+              <span className="text-cyan">SİNYAL DÖNDÜ</span> = bot ters yönde sinyal verdi ·{" "}
+              <span className="text-amber">SÜRE DOLDU</span> = 30 gün maks. tutma süresi
+            </p>
+          </section>
+        )}
       </div>
     </main>
   );
