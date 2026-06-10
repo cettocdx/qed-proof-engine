@@ -1,0 +1,81 @@
+2026-06-09 17:12:42 [cron] starting continuous bot run (35 bots, 1h bars)
+/Users/cetto/Developer/agentic/scripts/daily-run.sh: line 26: npx: command not found
+2026-06-10 01:04:54 [cron] starting continuous bot run (35 bots, 1h bars)
+/Users/cetto/Developer/agentic/scripts/daily-run.sh: line 26: npx: command not found
+2026-06-10 06:49:39 [cron] starting continuous bot run (35 bots, 1h bars)
+2026-06-10 06:52:36 [cron] via API port=3001: 
+2026-06-10 07:09:26 [cron] starting continuous bot run (35 bots, 1h bars)
+2026-06-10 07:12:29 [cron] via API port=3001: 
+2026-06-10 07:27:29 [cron] starting continuous bot run (35 bots, 1h bars)
+2026-06-10 07:30:04 [cron] via API port=3001: 
+2026-06-10 07:45:05 [cron] starting continuous bot run (35 bots, 1h bars)
+/Users/cetto/Developer/agentic/scripts/daily-run.sh: line 26: npx: command not found
+2026-06-10 09:15:52 [cron] starting continuous bot run (35 bots, 1h bars)
+2026-06-10 09:18:26 [cron] via API port=3001: emitted=1 chain=True
+2026-06-10 09:23:43 [cron] starting continuous bot run (35 bots, 1h bars)
+2026-06-10 09:25:31 [cron] via API port=3001: emitted=0 chain=True
+2026-06-10 09:40:31 [cron] starting continuous bot run (35 bots, 1h bars)
+2026-06-10 09:43:39 [cron] via API port=3001: emitted=8 chain=True
+2026-06-10 09:58:39 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+[live] checking 35 bots for new signals…
+  + AGT-018 Apollo → BUY
+  + AGT-025 Sophia → BUY
+  + AGT-033 Bonk → BUY
+[live] 3 new signals | chain OK
+2026-06-10 09:58:57 [cron] via tsx (direct)
+2026-06-10 10:13:57 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 10:13:58 [cron] via tsx (direct)
+2026-06-10 10:28:58 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ⌘ override existing { override: true }
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 10:28:59 [cron] via tsx (direct)
+2026-06-10 10:43:59 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 10:44:00 [cron] via tsx (direct)
+2026-06-10 10:59:00 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 10:59:01 [cron] via tsx (direct)
+2026-06-10 11:14:01 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 11:14:02 [cron] via tsx (direct)
+2026-06-10 11:29:02 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 11:29:04 [cron] via tsx (direct)
+2026-06-10 11:44:04 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 11:44:05 [cron] via tsx (direct)
+2026-06-10 11:59:06 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ⌘ suppress logs { quiet: true }
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 11:59:06 [cron] via tsx (direct)
+2026-06-10 12:14:06 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ⌘ enable debugging { debug: true }
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 12:14:07 [cron] via tsx (direct)
+2026-06-10 12:29:07 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 12:29:08 [cron] via tsx (direct)
+2026-06-10 12:44:09 [cron] starting continuous bot run (35 bots, 1h bars)
+◇ injected env (3) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+[live] checking 35 bots for new signals…
+[live] 0 new signals | chain OK
+2026-06-10 12:44:10 [cron] via tsx (direct)

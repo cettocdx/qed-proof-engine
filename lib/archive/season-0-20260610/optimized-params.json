@@ -1,0 +1,247 @@
+{
+  "AGT-001": {
+    "skillId": "momentum_12_1",
+    "params": null,
+    "trainScore": 0.0294,
+    "testScore": -0.0076,
+    "optimizedAt": "2026-06-10T06:40:33.667Z"
+  },
+  "AGT-002": {
+    "skillId": "sma_cross",
+    "params": null,
+    "trainScore": 0.0273,
+    "testScore": 0.0559,
+    "optimizedAt": "2026-06-10T06:40:34.362Z"
+  },
+  "AGT-003": {
+    "skillId": "donchian_breakout",
+    "params": {
+      "n": 20
+    },
+    "trainScore": 0.0026,
+    "testScore": 0.0423,
+    "optimizedAt": "2026-06-10T06:40:35.233Z"
+  },
+  "AGT-004": {
+    "skillId": "sma_cross",
+    "params": null,
+    "trainScore": 0.1331,
+    "testScore": 0.0003,
+    "optimizedAt": "2026-06-10T06:40:36.003Z"
+  },
+  "AGT-005": {
+    "skillId": "multi_tf_confirm",
+    "params": null,
+    "trainScore": 0.0792,
+    "testScore": 0.0087,
+    "optimizedAt": "2026-06-10T06:40:36.806Z"
+  },
+  "AGT-007": {
+    "skillId": "momentum_12_1",
+    "params": null,
+    "trainScore": 0.0183,
+    "testScore": -0.0018,
+    "optimizedAt": "2026-06-10T06:40:38.423Z"
+  },
+  "AGT-008": {
+    "skillId": "donchian_breakout",
+    "params": null,
+    "trainScore": -0.0029,
+    "testScore": -0.0053,
+    "optimizedAt": "2026-06-10T06:40:40.368Z"
+  },
+  "AGT-009": {
+    "skillId": "sma_cross",
+    "params": null,
+    "trainScore": -0.0189,
+    "testScore": 0.023,
+    "optimizedAt": "2026-06-10T06:40:41.285Z"
+  },
+  "AGT-010": {
+    "skillId": "sma_cross",
+    "params": {
+      "fast": 10,
+      "slow": 40
+    },
+    "trainScore": 0.0539,
+    "testScore": 0.0384,
+    "optimizedAt": "2026-06-10T06:40:42.415Z"
+  },
+  "AGT-011": {
+    "skillId": "bollinger_squeeze",
+    "params": {
+      "n": 30
+    },
+    "trainScore": -0.0467,
+    "testScore": -0.016,
+    "optimizedAt": "2026-06-10T06:40:43.011Z"
+  },
+  "AGT-012": {
+    "skillId": "sma_cross",
+    "params": null,
+    "trainScore": 0.304,
+    "testScore": 0.023,
+    "optimizedAt": "2026-06-10T06:40:44.262Z"
+  },
+  "AGT-013": {
+    "skillId": "multi_tf_confirm",
+    "params": null,
+    "trainScore": 0.1277,
+    "testScore": -0.0023,
+    "optimizedAt": "2026-06-10T06:40:44.360Z"
+  },
+  "AGT-014": {
+    "skillId": "macd_cross",
+    "params": null,
+    "trainScore": 0.0192,
+    "testScore": -0.0354,
+    "optimizedAt": "2026-06-10T06:40:44.490Z"
+  },
+  "AGT-015": {
+    "skillId": "donchian_breakout",
+    "params": {
+      "n": 20
+    },
+    "trainScore": 0.0026,
+    "testScore": 0.0423,
+    "optimizedAt": "2026-06-10T06:40:44.646Z"
+  },
+  "AGT-016": {
+    "skillId": "trend_pullback",
+    "params": null,
+    "trainScore": -0.0449,
+    "testScore": -0.0096,
+    "optimizedAt": "2026-06-10T06:40:44.746Z"
+  },
+  "AGT-017": {
+    "skillId": "trend_pullback",
+    "params": null,
+    "trainScore": 0.0499,
+    "testScore": -0.027,
+    "optimizedAt": "2026-06-10T06:40:47.399Z"
+  },
+  "AGT-018": {
+    "skillId": "momentum_12_1",
+    "params": null,
+    "trainScore": 0.0239,
+    "testScore": -0.0218,
+    "optimizedAt": "2026-06-10T06:40:48.035Z"
+  },
+  "AGT-019": {
+    "skillId": "donchian_breakout",
+    "params": null,
+    "trainScore": -0.0208,
+    "testScore": -0.0255,
+    "optimizedAt": "2026-06-10T06:40:48.584Z"
+  },
+  "AGT-020": {
+    "skillId": "multi_tf_confirm",
+    "params": null,
+    "trainScore": 0.2096,
+    "testScore": -0.1061,
+    "optimizedAt": "2026-06-10T06:40:49.029Z"
+  },
+  "AGT-022": {
+    "skillId": "multi_tf_confirm",
+    "params": null,
+    "trainScore": 0.2767,
+    "testScore": -0.0665,
+    "optimizedAt": "2026-06-10T06:40:50.360Z"
+  },
+  "AGT-023": {
+    "skillId": "sma_cross",
+    "params": {
+      "fast": 10,
+      "slow": 60
+    },
+    "trainScore": 0.1049,
+    "testScore": 0.0075,
+    "optimizedAt": "2026-06-10T06:40:50.849Z"
+  },
+  "AGT-024": {
+    "skillId": "bollinger_squeeze",
+    "params": null,
+    "trainScore": 0.0639,
+    "testScore": -0.0305,
+    "optimizedAt": "2026-06-10T06:40:51.325Z"
+  },
+  "AGT-025": {
+    "skillId": "trend_pullback",
+    "params": null,
+    "trainScore": 0.0026,
+    "testScore": -0.0445,
+    "optimizedAt": "2026-06-10T06:40:51.639Z"
+  },
+  "AGT-026": {
+    "skillId": "gap_go",
+    "params": null,
+    "trainScore": 0.0227,
+    "testScore": 0,
+    "optimizedAt": "2026-06-10T06:40:51.923Z"
+  },
+  "AGT-027": {
+    "skillId": "macd_cross",
+    "params": null,
+    "trainScore": 0.0252,
+    "testScore": 0.0273,
+    "optimizedAt": "2026-06-10T06:40:52.283Z"
+  },
+  "AGT-028": {
+    "skillId": "trend_pullback",
+    "params": null,
+    "trainScore": -0.0365,
+    "testScore": -0.029,
+    "optimizedAt": "2026-06-10T06:40:52.518Z"
+  },
+  "AGT-029": {
+    "skillId": "momentum_12_1",
+    "params": null,
+    "trainScore": 0.0157,
+    "testScore": -0.0116,
+    "optimizedAt": "2026-06-10T06:40:53.722Z"
+  },
+  "AGT-030": {
+    "skillId": "donchian_breakout",
+    "params": {
+      "n": 20
+    },
+    "trainScore": 0.012,
+    "testScore": 0.0098,
+    "optimizedAt": "2026-06-10T06:40:54.834Z"
+  },
+  "AGT-031": {
+    "skillId": "sma_cross",
+    "params": null,
+    "trainScore": 0.1265,
+    "testScore": 0.0319,
+    "optimizedAt": "2026-06-10T06:40:55.463Z"
+  },
+  "AGT-032": {
+    "skillId": "vwap_reversion",
+    "params": null,
+    "trainScore": 0.4046,
+    "testScore": 0.066,
+    "optimizedAt": "2026-06-10T06:40:56.202Z"
+  },
+  "AGT-033": {
+    "skillId": "sma_cross",
+    "params": null,
+    "trainScore": 0.0584,
+    "testScore": 0.0334,
+    "optimizedAt": "2026-06-10T06:40:57.447Z"
+  },
+  "AGT-034": {
+    "skillId": "multi_tf_confirm",
+    "params": null,
+    "trainScore": 0.0795,
+    "testScore": 0.0038,
+    "optimizedAt": "2026-06-10T06:40:58.242Z"
+  },
+  "AGT-035": {
+    "skillId": "momentum_12_1",
+    "params": null,
+    "trainScore": 0.0157,
+    "testScore": -0.0116,
+    "optimizedAt": "2026-06-10T06:40:58.328Z"
+  }
+}

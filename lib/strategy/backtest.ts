@@ -138,7 +138,14 @@ export function backtestPortfolio(signals: Signal[]): BacktestResult {
     .map((sigs) => backtestFromSignals(sigs))
     .filter((r) => r.segments > 0);
 
-  if (sleeves.length === 0) return backtestFromSignals(signals);
+  if (sleeves.length === 0) {
+    // No sleeve has two signals yet — NEVER fall back to the mixed sequence
+    // (a price jump between different symbols is not P&L).
+    return {
+      curve: [1, 1], totalReturnPct: 0, maxDrawdownPct: 0,
+      sharpe: 0, winRatePct: 0, segments: 0, exposurePct: 0,
+    };
+  }
   if (sleeves.length === 1) return sleeves[0];
 
   const mean = (xs: number[]) => xs.reduce((a, c) => a + c, 0) / xs.length;
