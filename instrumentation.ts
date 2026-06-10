@@ -32,11 +32,11 @@ export async function register() {
 
   // Wait for the server to be ready before the first run
   setTimeout(() => {
-    console.log("[scheduler] QED scheduler armed — bots:5m watcher:1h evolve:daily@03UTC");
+    console.log("[scheduler] QED scheduler armed — bots:1h watcher:30m evolve:daily@03UTC");
     void hit("/api/cron/run-bots", "run-bots(boot)");
 
-    setInterval(() => void hit("/api/cron/run-bots", "run-bots"), 5 * 60 * 1000);
-    setInterval(() => void hit("/api/watcher", "watcher"), 60 * 60 * 1000);
+    setInterval(() => void hit("/api/cron/run-bots", "run-bots"), 60 * 60 * 1000);
+    setInterval(() => void hit("/api/watcher", "watcher"), 30 * 60 * 1000);
 
     setInterval(() => {
       const now = new Date();

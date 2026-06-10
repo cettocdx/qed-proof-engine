@@ -52,6 +52,9 @@ const fmtPrice = (n: number) => {
 const fmtUsd = (n: number) =>
   `${n < 0 ? "−" : "+"}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
+const fmtWhen = (ts: string) =>
+  new Date(ts).toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+
 function timeAgo(ts: string): string {
   const h = (Date.now() - new Date(ts).getTime()) / 3.6e6;
   if (h < 1) return `${Math.max(1, Math.round(h * 60))}m ago`;
@@ -209,12 +212,21 @@ export default function PositionsPage() {
                       </div>
                     </div>
 
+                    <div className="mt-2 text-[11px] text-fg-dim tabular">
+                      {p.side === "long" ? "LONG" : "SHORT"} @ <span className="text-fg">{fmtPrice(p.entryPrice)}</span>
+                      <span className="text-fg-mute"> · {fmtWhen(p.entryTs)} ({timeAgo(p.entryTs)})</span>
+                    </div>
+
                     <div className="mt-3"><RiskBar p={p} /></div>
 
-                    <div className="mt-3 flex items-center justify-between text-[10px] text-fg-mute tabular">
-                      <span>size ${p.size.toLocaleString()}</span>
-                      <span>now {p.currentPrice != null ? fmtPrice(p.currentPrice) : "—"}</span>
-                      <span>opened {timeAgo(p.entryTs)}</span>
+                    <div className="mt-3 flex items-center justify-between text-[10px] tabular">
+                      <span className="text-danger/80">
+                        stop olursa −${Math.round(Math.abs(p.entryPrice - p.stopPrice) / p.entryPrice * p.size).toLocaleString()}
+                      </span>
+                      <span className="text-fg-mute">size ${p.size.toLocaleString()} · now {p.currentPrice != null ? fmtPrice(p.currentPrice) : "—"}</span>
+                      <span className="text-green/80">
+                        TP tutarsa +${Math.round(Math.abs(p.targetPrice - p.entryPrice) / p.entryPrice * p.size).toLocaleString()}
+                      </span>
                     </div>
                   </Link>
                 );
@@ -229,59 +241,58 @@ export default function PositionsPage() {
           </div>
         )}
 
-        {/* closed positions */}
+        {/* closed positions — full trade story */}
         {data && data.closed.length > 0 && (
           <div>
             <div className="mb-3 text-[11px] tracking-widest text-fg-mute">
-              CLOSED TRADES (last {data.closed.length})
+              TRADE HISTORY (last {data.closed.length})
             </div>
-            <div className="divide-y divide-border/60 border border-border bg-surface/20">
-              <div className="hidden grid-cols-[140px_90px_70px_90px_90px_90px_90px_1fr] gap-3 border-b border-border px-4 py-2 text-[10px] tracking-widest text-fg-mute sm:grid">
-                <span>AGENT</span>
-                <span>SYMBOL</span>
-                <span>SIDE</span>
-                <span className="text-right">ENTRY</span>
-                <span className="text-right">EXIT</span>
-                <span className="text-right">P&L $</span>
-                <span className="text-right">P&L %</span>
-                <span className="text-right">CLOSED BECAUSE</span>
-              </div>
+            <div className="grid grid-cols-1 gap-2">
               {[...data.closed].reverse().map((p) => {
                 const reason = REASON_LABEL[p.closeReason ?? ""] ?? { text: "—", cls: "text-fg-dim" };
+                const win = (p.pnlUsd ?? 0) >= 0;
+                const heldH = p.exitTs ? (new Date(p.exitTs).getTime() - new Date(p.entryTs).getTime()) / 3.6e6 : null;
+                const held = heldH == null ? "—" : heldH < 1 ? `${Math.max(1, Math.round(heldH * 60))}dk` : heldH < 48 ? `${Math.round(heldH)}sa` : `${Math.round(heldH / 24)}g`;
                 return (
                   <Link key={p.id} href={`/strategy/${p.strategyId}`}
-                    className="grid grid-cols-2 gap-2 px-4 py-2.5 text-[12px] transition-colors hover:bg-surface/50 sm:grid-cols-[140px_90px_70px_90px_90px_90px_90px_1fr] sm:items-center sm:gap-3">
-                    <span className="truncate text-fg">{p.botName} <span className="text-[10px] text-fg-mute">{p.strategyId}</span></span>
-                    <span className="text-fg-dim">{p.symbol}</span>
-                    <span className={p.side === "long" ? "text-green" : "text-danger"}>{p.side.toUpperCase()}</span>
-                    <span className="text-right text-fg-dim tabular">{fmtPrice(p.entryPrice)}</span>
-                    <span className="text-right text-fg-dim tabular">{p.exitPrice != null ? fmtPrice(p.exitPrice) : "—"}</span>
-                    <span className="text-right tabular">
-                      {p.pnlUsd != null ? (
-                        <span className={p.pnlUsd >= 0 ? "text-green" : "text-danger"}>{fmtUsd(p.pnlUsd)}</span>
-                      ) : "—"}
-                    </span>
-                    <span className="text-right tabular">
-                      {p.pnlPct != null ? (
-                        <span className={p.pnlPct >= 0 ? "text-green/80" : "text-danger/80"}>
-                          {p.pnlPct >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%
+                    className="group border border-border bg-surface/20 px-4 py-3 transition-colors hover:border-border-2 hover:bg-surface/40">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <span className={`border px-1.5 py-0.5 text-[9px] tracking-wider ${p.side === "long" ? "border-green/40 bg-green/10 text-green" : "border-danger/40 bg-danger/10 text-danger"}`}>
+                          {p.side === "long" ? "▲ LONG" : "▼ SHORT"}
                         </span>
-                      ) : "—"}
-                    </span>
-                    <span className="text-right">
-                      <span className={`inline-block border px-1.5 py-0.5 text-[9px] tracking-wider ${reason.cls}`}>
-                        {reason.text}
-                      </span>
-                    </span>
+                        <span className="text-[13px] text-fg group-hover:text-cyan transition-colors">{p.symbol}</span>
+                        <span className="text-[11px] text-fg-dim">{p.botName}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-block border px-2 py-0.5 text-[9px] tracking-wider ${reason.cls}`}>{reason.text}</span>
+                        <span className={`text-sm tabular ${win ? "text-green" : "text-danger"}`}>
+                          {p.pnlUsd != null ? fmtUsd(p.pnlUsd) : "—"}
+                          {p.pnlPct != null && (
+                            <span className="ml-1 text-[10px] opacity-70">({p.pnlPct >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%)</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-fg-mute tabular">
+                      <span>giriş <span className="text-fg-dim">{fmtPrice(p.entryPrice)}</span> · {fmtWhen(p.entryTs)}</span>
+                      <span>→</span>
+                      <span>çıkış <span className="text-fg-dim">{p.exitPrice != null ? fmtPrice(p.exitPrice) : "—"}</span>{p.exitTs ? ` · ${fmtWhen(p.exitTs)}` : ""}</span>
+                      <span>süre {held}</span>
+                      <span className="text-danger/60">SL {fmtPrice(p.stopPrice)}</span>
+                      <span className="text-green/60">TP {fmtPrice(p.targetPrice)}</span>
+                      <span>size ${p.size.toLocaleString()}</span>
+                    </div>
                   </Link>
                 );
               })}
             </div>
-            <p className="mt-3 text-[10px] text-fg-mute">
-              FLIP = opposite signal arrived · STOP HIT = 2×ATR loss limit · TARGET HIT = 4×ATR profit target · TIME OUT = 30-day max hold
-            </p>
           </div>
         )}
+
+        <p className="mt-4 text-[10px] text-fg-mute">
+          FLIP = ters sinyal geldi · STOP HIT = 2×ATR zarar kes · TARGET HIT = 4×ATR kâr al · TIME OUT = 30 gün maks. tutma
+        </p>
       </div>
     </main>
   );

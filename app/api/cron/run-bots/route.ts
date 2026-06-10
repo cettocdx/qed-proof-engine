@@ -10,7 +10,9 @@ import { getWallet } from "@/lib/portfolio/wallet";
 import { loadSkillOverrides, effectiveSkillId, type SkillOverrides } from "@/lib/brain/evolution";
 import { loadOptimizedParams, type OptimizedParams } from "@/lib/brain/optimizer";
 import { loadCoachNotes, type CoachNotes } from "@/lib/brain/coach";
-import { ROSTER, universeFor } from "@/lib/bots/roster";
+import { ROSTER } from "@/lib/bots/roster";
+import { getScanList } from "@/lib/market/universe";
+import { getOpenPositions } from "@/lib/positions/tracker";
 import type { Bot } from "@/lib/bots/roster";
 import type { Bar } from "@/lib/market/data";
 
@@ -60,7 +62,7 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
   if (!skill) return { id: bot.id, name: bot.name, signals: 0, note: "unknown skill" };
 
   const existing = await getSignals(bot.id);
-  const bucket = (ts: string) => ts.slice(0, 14) + String(Math.floor(+ts.slice(14, 16) / 15));
+  const bucket = (ts: string) => ts.slice(0, 13); // one signal per (bot, symbol) per hour
   const nowBucket = bucket(new Date().toISOString());
 
   const brainOpts = {
@@ -82,8 +84,15 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
   const candidates: Candidate[] = [];
   let specEnsured = false;
 
-  for (const symbol of universeFor(bot)) {
-    // one signal per (bot, symbol) per 15-minute window
+  // Dynamic universe: home symbol + open-position symbols + this cycle's
+  // rotating chunk of the full market (Binance USDT / NASDAQ / meme >$300k)
+  const openSymbols = (await getOpenPositions())
+    .filter((p) => p.strategyId === bot.id)
+    .map((p) => p.symbol);
+  const { scan, universeSize } = await getScanList(bot, openSymbols);
+
+  for (const symbol of scan) {
+    // one signal per (bot, symbol) per hour
     if (existing.some((s) => s.symbol === symbol && bucket(s.ts) === nowBucket)) continue;
 
     let bars: Bar[];
@@ -116,7 +125,7 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
   const last = bars[bars.length - 1];
 
   let decision;
-  let layersSummary = `scan:${candidates.length}/${universeFor(bot).length} pick:${pick.symbol}`;
+  let layersSummary = `scan:${candidates.length}/${scan.length} (uni:${universeSize}) pick:${pick.symbol}`;
 
   if (useLlm) {
     // Full 4-layer pipeline only on the winning symbol (controls LLM cost)
