@@ -9,11 +9,14 @@
 set -e
 
 if [ -d /data ]; then
-  # First boot: seed the volume with whatever shipped in the image
-  if [ ! -f /data/.seeded ]; then
-    cp -rn /app/seed-data/. /data/ 2>/dev/null || true
-    touch /data/.seeded
-    echo "[entrypoint] seeded /data from image"
+  # Seed the volume when the image carries a newer seed version.
+  # Bump lib/data/.seed-version locally to force a one-time data refresh
+  # on the next deploy (used to ship the local track record to the cloud).
+  IMG_VER=$(cat /app/seed-data/.seed-version 2>/dev/null || echo 0)
+  VOL_VER=$(cat /data/.seed-version 2>/dev/null || echo -1)
+  if [ "$IMG_VER" != "$VOL_VER" ]; then
+    cp -rf /app/seed-data/. /data/ 2>/dev/null || true
+    echo "[entrypoint] reseeded /data from image (seed v$IMG_VER)"
   fi
   mkdir -p /app/lib
   rm -rf /app/lib/data
