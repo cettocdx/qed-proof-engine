@@ -234,35 +234,48 @@ export default async function StrategyPage({
               must emit live signals to earn a track record.
             </div>
           ) : (
-            <div className="divide-y divide-border/60">
-              <div className="grid grid-cols-[150px_56px_72px_64px_1fr] gap-3 px-4 py-2 text-[10px] tracking-widest text-fg-mute">
+            <div className="divide-y divide-border/60 overflow-x-auto">
+              <div className="grid min-w-[760px] grid-cols-[140px_56px_90px_90px_80px_48px_1fr] gap-3 px-4 py-2 text-[10px] tracking-widest text-fg-mute">
                 <span>TIMESTAMP</span>
                 <span>ACTION</span>
                 <span>SYMBOL</span>
+                <span className="text-right">PRICE</span>
+                <span className="text-right">SIZE</span>
                 <span className="text-right">CONF</span>
                 <span className="text-right">ENTRY HASH</span>
               </div>
-              {signals.map((s) => (
-                <div
-                  key={s.seq}
-                  className="grid grid-cols-[150px_56px_72px_64px_1fr] items-center gap-3 px-4 py-2 text-[12px]"
-                >
-                  <span className="text-fg-dim tabular">
-                    {s.signal.ts.slice(0, 10)}{" "}
-                    <span className="text-fg-mute">{s.signal.ts.slice(11, 19)}</span>
-                  </span>
-                  <span className={ACTION_COLOR[s.signal.action] ?? "text-fg"}>
-                    {s.signal.action}
-                  </span>
-                  <span className="text-fg">{s.signal.symbol}</span>
-                  <span className="text-right text-fg-dim tabular">
-                    {s.signal.meta?.confidence?.toFixed(2) ?? "—"}
-                  </span>
-                  <span className="truncate text-right text-cyan/50 tabular">
-                    {s.hash.slice(0, 16)}…
-                  </span>
-                </div>
-              ))}
+              {[...signals].reverse().map((s) => {
+                const price = s.signal.meta?.price ?? 0;
+                const note = String(s.signal.meta?.note ?? "");
+                const notional = note.match(/notional:(\d+)/)?.[1];
+                return (
+                  <div
+                    key={s.seq}
+                    className="grid min-w-[760px] grid-cols-[140px_56px_90px_90px_80px_48px_1fr] items-center gap-3 px-4 py-2 text-[12px]"
+                  >
+                    <span className="text-fg-dim tabular">
+                      {s.signal.ts.slice(0, 10)}{" "}
+                      <span className="text-fg-mute">{s.signal.ts.slice(11, 16)}</span>
+                    </span>
+                    <span className={ACTION_COLOR[s.signal.action] ?? "text-fg"}>
+                      {s.signal.action}
+                    </span>
+                    <span className="text-fg">{s.signal.symbol}</span>
+                    <span className="text-right text-fg tabular">
+                      {price > 0 ? fmtSignalPrice(price) : "—"}
+                    </span>
+                    <span className="text-right text-fg-dim tabular">
+                      {notional ? `$${Number(notional).toLocaleString()}` : "—"}
+                    </span>
+                    <span className="text-right text-fg-dim tabular">
+                      {s.signal.meta?.confidence?.toFixed(2) ?? "—"}
+                    </span>
+                    <span className="truncate text-right text-cyan/50 tabular">
+                      {s.hash.slice(0, 16)}…
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -275,6 +288,14 @@ export default async function StrategyPage({
       </div>
     </main>
   );
+}
+
+/** Adaptive price formatting — sub-cent memecoins keep their precision. */
+function fmtSignalPrice(n: number): string {
+  if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (n >= 1) return n.toFixed(2);
+  const decimals = Math.min(10, Math.ceil(-Math.log10(n)) + 3);
+  return n.toFixed(decimals).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function Field({
