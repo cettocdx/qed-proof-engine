@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import SiteNav from "@/components/SiteNav";
 
 type Status = "LIVE" | "INCUB" | "BACKTEST";
-type SortKey = "ret" | "sharpe" | "dd" | "since" | "signals" | "equity";
+type SortKey = "ret" | "sharpe" | "dd" | "since" | "signals" | "equity" | "pnl";
 
 type Row = {
   id: string;
@@ -92,7 +92,7 @@ const MARKET_LABEL: Record<string, string> = {
 export default function ScoreboardPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [chainOk, setChainOk] = useState<boolean | null>(null);
-  const [sort, setSort] = useState<SortKey>("ret");
+  const [sort, setSort] = useState<SortKey>("pnl");
   const [asc, setAsc] = useState(false);
   const [filterMarket, setFilterMarket] = useState("ALL");
   const [filterArchetype, setFilterArchetype] = useState("ALL");
@@ -119,7 +119,9 @@ export default function ScoreboardPage() {
               ((s.spec.params as Record<string, unknown>)?.profile as Record<string, unknown>)?.riskLevel ?? ""
             ),
             since: s.liveDays,
-            ret: s.totalReturnPct,
+            ret: walletById.get(s.spec.id)
+              ? +(((walletById.get(s.spec.id)!.equity / 100000) - 1) * 100).toFixed(2)
+              : s.totalReturnPct,
             sharpe: s.sharpe,
             dd: s.maxDrawdownPct,
             signals: s.signalCount,
@@ -154,6 +156,7 @@ export default function ScoreboardPage() {
         case "since": va = a.since; vb = b.since; break;
         case "signals": va = a.signals; vb = b.signals; break;
         case "equity": va = a.equity ?? -999; vb = b.equity ?? -999; break;
+        case "pnl": va = a.pnl ?? -999; vb = b.pnl ?? -999; break;
         default: va = 0; vb = 0;
       }
       return asc ? va - vb : vb - va;
@@ -251,10 +254,10 @@ export default function ScoreboardPage() {
               <span className="text-right"><SortTh label="LIVE" k="since" /></span>
               <span className="text-right"><SortTh label="SIGNALS" k="signals" /></span>
               <span className="text-right"><SortTh label="EQUITY" k="equity" /></span>
-              <span className="text-right">P&L</span>
+              <span className="text-right"><SortTh label="P&L" k="pnl" /></span>
               <span className="text-right"><SortTh label="RETURN" k="ret" /></span>
-              <span className="text-right"><SortTh label="MAX DD" k="dd" /></span>
-              <span className="text-right"><SortTh label="SHARPE" k="sharpe" /></span>
+              <span className="text-right" title="Maksimum düşüş: equity tepe noktasından en kötü geri çekilme. Veri biriktikçe oluşur."><SortTh label="MAX DD" k="dd" /></span>
+              <span className="text-right" title="Getiri / oynaklık oranı — istikrar ölçüsü. En az 4 kapanmış işlem gerekir."><SortTh label="SHARPE" k="sharpe" /></span>
             </div>
 
             <div className="divide-y divide-border/50">
@@ -320,7 +323,9 @@ export default function ScoreboardPage() {
                         )}
                       </span>
 
-                      <span className="text-right text-danger/80 tabular">{r.dd.toFixed(1)}%</span>
+                      <span className="text-right tabular">
+                        {r.signals < 2 || r.dd === 0 ? <span className="text-fg-mute">—</span> : <span className="text-danger/80">{r.dd.toFixed(1)}%</span>}
+                      </span>
 
                       <span className="text-right tabular">
                         {r.sharpe === null ? (
