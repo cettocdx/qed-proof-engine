@@ -59,7 +59,16 @@ function atr(bars: { h: number; l: number; c: number }[], n = 14): number {
 async function readAll(): Promise<Position[]> {
   try {
     const raw = await fs.readFile(POSITIONS_LOG, "utf8");
-    return raw.split("\n").filter(Boolean).map((l) => JSON.parse(l) as Position);
+    const out: Position[] = [];
+    for (const line of raw.split("\n")) {
+      if (line.trim().length === 0) continue;
+      try {
+        out.push(JSON.parse(line) as Position);
+      } catch {
+        console.warn("[positions] skipping corrupt line:", line.slice(0, 60));
+      }
+    }
+    return out;
   } catch { return []; }
 }
 

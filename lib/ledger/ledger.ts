@@ -26,10 +26,16 @@ const LEDGER_PATH = path.join(DATA_DIR, "ledger.jsonl");
 async function readEntries(): Promise<LedgerEntry[]> {
   try {
     const raw = await fs.readFile(LEDGER_PATH, "utf8");
-    return raw
-      .split("\n")
-      .filter((l) => l.trim().length > 0)
-      .map((l) => JSON.parse(l) as LedgerEntry);
+    const entries: LedgerEntry[] = [];
+    for (const line of raw.split("\n")) {
+      if (line.trim().length === 0) continue;
+      try {
+        entries.push(JSON.parse(line) as LedgerEntry);
+      } catch {
+        console.warn("[ledger] skipping corrupt line:", line.slice(0, 60));
+      }
+    }
+    return entries;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw err;
