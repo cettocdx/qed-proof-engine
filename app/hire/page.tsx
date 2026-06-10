@@ -129,14 +129,12 @@ export default function HirePage() {
                 {/* live system specs */}
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-fg-dim">
                   <span>TARAMA: <span className="text-cyan">{c.universe.size > 0 ? `${c.universe.size} ${c.universe.label}` : c.universe.label}</span> / saat</span>
-                  <span>BEYİN: <span className="text-fg">11 skill ensemble</span></span>
-                  <span>UZMANLIK: <span className="text-fg">{c.skillLabel}</span></span>
                   <span>BOYUT: <span className="text-fg">equity × {(c.temperament.riskPct * 100).toFixed(0)}%</span></span>
                   <span>WIN RATE: <span className="text-fg">{c.winRate != null ? `${(c.winRate * 100).toFixed(0)}%` : "—"}</span></span>
                 </div>
                 {c.evolved && (
                   <p className="mt-2 text-[10px] text-amber/80">
-                    ⟳ EVRİLDİ: {c.evolved.from} → {c.skillLabel}
+                    ⟳ Stratejisini kendi kendine güncelledi ({new Date(c.evolved.at).toLocaleDateString("tr-TR")})
                   </p>
                 )}
                 {c.coach && (
