@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAllPositions, getPortfolioStats } from "@/lib/positions/tracker";
 import { getBars } from "@/lib/market/data";
 import { botById } from "@/lib/bots/roster";
+import { temperamentFor } from "@/lib/bots/temperament";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +24,20 @@ export async function GET() {
     }),
   );
 
-  const enrich = (p: (typeof positions)[number]) => ({
-    ...p,
-    botName: botById(p.strategyId)?.name ?? p.strategyId,
-  });
+  const enrich = (p: (typeof positions)[number]) => {
+    const bot = botById(p.strategyId);
+    const riskPct = bot ? temperamentFor(bot).riskPct : null;
+    // dollars lost if the stop is hit — the trade's actual risk
+    const riskUsd = p.entryPrice > 0
+      ? +((Math.abs(p.entryPrice - p.stopPrice) / p.entryPrice) * p.size).toFixed(0)
+      : null;
+    return {
+      ...p,
+      botName: bot?.name ?? p.strategyId,
+      equityPct: riskPct,          // position notional as fraction of bot equity
+      riskUsd,
+    };
+  };
 
   const openEnriched = open.map((p) => {
     const mark = marks.get(`${p.symbol}|${p.source}`) ?? null;

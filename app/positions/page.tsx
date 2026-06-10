@@ -24,6 +24,8 @@ type Position = {
   currentPrice?: number | null;
   livePnlPct?: number | null;
   livePnlUsd?: number | null;
+  equityPct?: number | null;
+  riskUsd?: number | null;
 };
 
 type Stats = {
@@ -163,17 +165,26 @@ export default function PositionsPage() {
                       <div className="flex items-center gap-3">
                         <SideBadge side={p.side} />
                         <span className="text-[15px] text-fg">{p.symbol}</span>
-                        <span className="text-[11px] text-fg-mute">{p.botName}</span>
+                        <span className="text-[12px] text-cyan/80">{p.botName} <span className="text-[10px] text-fg-mute">{p.strategyId}</span></span>
                       </div>
                       <Pnl usd={p.livePnlUsd} pct={p.livePnlPct} big />
                     </div>
-                    {/* line 2: the whole story in one calm row */}
+                    {/* line 2: prices + timing */}
                     <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-[11px] tabular sm:grid-cols-5">
                       <span className="text-fg-mute">giriş <span className="text-fg-dim">{fmtPrice(p.entryPrice)}</span></span>
                       <span className="text-fg-mute">şimdi <span className="text-fg">{p.currentPrice != null ? fmtPrice(p.currentPrice) : "—"}</span></span>
                       <span className="text-danger/70">stop {fmtPrice(p.stopPrice)}</span>
                       <span className="text-green/70">hedef {fmtPrice(p.targetPrice)}</span>
                       <span className="text-fg-mute">{fmtWhen(p.entryTs)} · {ago(p.entryTs)} önce</span>
+                    </div>
+                    {/* line 3: size + risk taken */}
+                    <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-[11px] tabular">
+                      <span className="text-fg-dim">pozisyon <span className="text-fg">${p.size.toLocaleString()}</span>
+                        {p.equityPct != null && <span className="text-fg-mute"> · equity&apos;nin %{Math.round(p.equityPct * 100)}&apos;i · 1x spot</span>}
+                      </span>
+                      {p.riskUsd != null && (
+                        <span className="text-danger/80">alınan risk ${p.riskUsd.toLocaleString()} <span className="text-fg-mute">(stop yerse)</span></span>
+                      )}
                     </div>
                   </Link>
                 ))}
@@ -203,7 +214,7 @@ export default function PositionsPage() {
                       <div className="flex items-center gap-3">
                         <SideBadge side={p.side} />
                         <span className="text-[14px] text-fg">{p.symbol}</span>
-                        <span className="text-[11px] text-fg-mute">{p.botName}</span>
+                        <span className="text-[12px] text-cyan/80">{p.botName} <span className="text-[10px] text-fg-mute">{p.strategyId}</span></span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className={`hidden border px-2 py-0.5 text-[9px] tracking-wider sm:inline-block ${o.cls}`}>{o.text}</span>
@@ -216,6 +227,8 @@ export default function PositionsPage() {
                       {fmtWhen(p.entryTs)} → {p.exitTs ? fmtWhen(p.exitTs) : "—"}
                       <span className="mx-2 text-border-2">|</span>
                       {held(p.entryTs, p.exitTs)} tutuldu
+                      <span className="mx-2 text-border-2">|</span>
+                      ${p.size.toLocaleString()} pozisyon{p.riskUsd != null ? ` · $${p.riskUsd.toLocaleString()} risk` : ""}
                       <span className="sm:hidden"> · {o.text}</span>
                     </div>
                   </Link>
