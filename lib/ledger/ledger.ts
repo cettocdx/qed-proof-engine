@@ -156,7 +156,7 @@ function metricsFor(
   const enough = sigs.length >= 2;
 
   const status: StrategyMetrics["status"] =
-    sigs.length === 0 ? "BACKTEST" : liveDays >= 90 ? "LIVE" : "INCUB";
+    sigs.length === 0 ? "BACKTEST" : liveDays >= 7 ? "LIVE" : "INCUB";
 
   return {
     spec,
