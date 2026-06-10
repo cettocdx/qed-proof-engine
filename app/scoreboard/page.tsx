@@ -100,7 +100,7 @@ export default function ScoreboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
+    const load = () => Promise.all([
       fetch("/api/scoreboard").then((r) => r.json() as Promise<ApiResponse>),
       fetch("/api/wallets").then((r) => r.json() as Promise<{ wallets: { strategyId: string; equity: number; realizedPnl: number; unrealizedPnl: number }[] }>).catch(() => ({ wallets: [] })),
     ])
@@ -134,6 +134,9 @@ export default function ScoreboardPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+    load();
+    const id = setInterval(load, 60_000); // live refresh every 60s
+    return () => clearInterval(id);
   }, []);
 
   const sortedRows = useMemo(() => {

@@ -31,7 +31,7 @@ export const TEMPERAMENTS: Record<TemperamentKind, Temperament> = {
     kind: "aggressive",
     label: "AGGRESSIVE",
     riskPct: 0.15,        // 15% of equity per trade
-    minConfidence: 0.25,
+    minConfidence: 0.20,
     stopScale: 1.3,
     blurb: "Swings big, acts fast, tolerates drawdown for outsized wins.",
   },
@@ -39,7 +39,7 @@ export const TEMPERAMENTS: Record<TemperamentKind, Temperament> = {
     kind: "balanced",
     label: "BALANCED",
     riskPct: 0.10,        // 10% of equity per trade
-    minConfidence: 0.35,
+    minConfidence: 0.28,
     stopScale: 1.0,
     blurb: "Steady operator. Takes good setups, sizes sensibly, cuts losers.",
   },
@@ -47,7 +47,7 @@ export const TEMPERAMENTS: Record<TemperamentKind, Temperament> = {
     kind: "calm",
     label: "CALM",
     riskPct: 0.05,        // 5% of equity per trade
-    minConfidence: 0.50,
+    minConfidence: 0.40,
     stopScale: 0.8,
     blurb: "Patient sniper. Waits for high-conviction setups, protects capital first.",
   },

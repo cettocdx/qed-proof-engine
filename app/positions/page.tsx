@@ -40,10 +40,14 @@ type Stats = {
 
 type ApiResponse = { stats: Stats; open: Position[]; closed: Position[] };
 
-const fmtPrice = (n: number) =>
-  n >= 1000 ? n.toLocaleString(undefined, { maximumFractionDigits: 0 })
-  : n >= 1 ? n.toFixed(2)
-  : n.toFixed(6);
+/** Adaptive precision: $43,250 · $6.48 · $0.1560 · $0.00000279 */
+const fmtPrice = (n: number) => {
+  if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (n >= 1) return n.toFixed(2);
+  if (n <= 0) return "0";
+  const decimals = Math.min(10, Math.ceil(-Math.log10(n)) + 3);
+  return n.toFixed(decimals).replace(/0+$/, "").replace(/\.$/, "");
+};
 
 const fmtUsd = (n: number) =>
   `${n < 0 ? "−" : "+"}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -107,11 +111,17 @@ export default function PositionsPage() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+
   useEffect(() => {
-    fetch("/api/positions")
-      .then((r) => r.json() as Promise<ApiResponse>)
-      .then((d) => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+    const load = () =>
+      fetch("/api/positions")
+        .then((r) => r.json() as Promise<ApiResponse>)
+        .then((d) => { setData(d); setUpdatedAt(new Date()); setLoading(false); })
+        .catch(() => setLoading(false));
+    load();
+    const id = setInterval(load, 30_000); // live refresh every 30s
+    return () => clearInterval(id);
   }, []);
 
   const s = data?.stats;
@@ -130,8 +140,14 @@ export default function PositionsPage() {
             Live Positions
           </h1>
           <p className="mt-1 text-sm text-fg-dim">
-            Every open trade, marked to the latest price · stops at 2×ATR, targets at 4×ATR · checked hourly
+            Every open trade, marked to the latest price · stops at 2×ATR, targets at 4×ATR
           </p>
+          {updatedAt && (
+            <p className="mt-1 flex items-center gap-1.5 text-[10px] tracking-widest text-green">
+              <span className="blink inline-block h-1.5 w-1.5 rounded-full bg-green" />
+              LIVE · auto-refresh 30s · updated {updatedAt.toLocaleTimeString()}
+            </p>
+          )}
         </div>
 
         {/* portfolio stats */}

@@ -19,8 +19,8 @@ export const maxDuration = 300; // 5 min — enough for all 35 bots
 
 const SECRET = process.env.CRON_SECRET;
 
-// Use 1h bars for continuous intraday signals; 200 bars ≈ 8 days of hourly data
-const INTRADAY_INTERVAL = "1h" as const;
+// 15m bars for truly continuous trading; 200 bars ≈ 50 hours of context
+const INTRADAY_INTERVAL = "15m" as const;
 const INTRADAY_LIMIT    = 200;
 
 type BotResult = {
@@ -71,12 +71,13 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
 
   await ensureSpec(bot, bars, knownIds);
 
-  // Deduplicate: skip if already have a signal within the last hour
+  // Deduplicate: at most one signal per 15-minute bucket
   const last = bars[bars.length - 1];
-  const lastHour = new Date(last.t).toISOString().slice(0, 13); // "YYYY-MM-DDTHH"
+  const bucket = (ts: string) => ts.slice(0, 14) + String(Math.floor(+ts.slice(14, 16) / 15));
+  const nowBucket = bucket(new Date().toISOString());
   const existing = await getSignals(bot.id);
-  if (existing.some((s) => s.ts.slice(0, 13) === lastHour)) {
-    return { id: bot.id, name: bot.name, signals: 0, note: "already emitted this hour" };
+  if (existing.some((s) => bucket(s.ts) === nowBucket)) {
+    return { id: bot.id, name: bot.name, signals: 0, note: "already emitted this window" };
   }
 
   // ── Brain Pipeline ────────────────────────────────────────────────────
@@ -134,7 +135,7 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
     action: decision.action,
     symbol: bot.symbols[0],
     meta: {
-      price: +last.c.toFixed(2),
+      price: +last.c.toPrecision(8), // keep precision for sub-cent memecoins
       confidence: +decision.confidence.toFixed(2),
       rationale: decision.rationale,
       note: `brain:${useLlm ? "full" : "fast"} interval:${INTRADAY_INTERVAL} temperament:${temperament.kind} notional:${notional}`,
@@ -154,7 +155,7 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
     market: bot.market,
     source: bot.source,
     side,
-    entryPrice: +last.c.toFixed(2),
+    entryPrice: +last.c.toPrecision(8),
     entryTs: signalTs,
     size: notional,
     atrBars: bars.slice(-20),

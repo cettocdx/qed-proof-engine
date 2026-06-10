@@ -32,7 +32,7 @@ function isBull(a: SignalAction) { return BULL.includes(a); }
 function isBear(a: SignalAction) { return BEAR.includes(a); }
 
 /** Minimum fraction of weighted votes that must agree (directionally) to pass. */
-const MIN_CONSENSUS = 0.55; // 55% — slightly above majority
+const MIN_CONSENSUS = 0.50; // simple majority — continuous trading mode
 
 export function runEnsemble(
   bars: Bar[],
