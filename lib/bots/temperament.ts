@@ -91,16 +91,30 @@ export function bioFor(bot: Bot): AgentBio {
   return { ...DEFAULT_BIO(bot), ...BIOS[bot.id] };
 }
 
-// ── Hire pricing ───────────────────────────────────────────────────────────
+// ── Hire pricing — driven by real money earned + ROI, recomputed live ──────
 /**
- * Monthly hire price in USD. Base by archetype, scaled by performance:
- *   price = base × (1 + max(0, returnPct) × 4) × temperamentPremium
- * Floors at base/2 for losing agents.
+ * Monthly hire price in USD:
+ *
+ *   price = base(archetype)
+ *         + 5% of profits actually earned this season (realized + unrealized)
+ *         + $12 per ROI percentage point
+ *
+ * A bot that made $8,000 at +8% ROI on a $499 desk: 499 + 400 + 96 = $1,000/mo.
+ * Losing bots discount toward the floor: each negative ROI point cuts 3% off
+ * base, floored at 40% of base — bad performance gets cheap, never free.
  */
-export function hirePriceUsd(bot: Bot, returnPct: number): number {
+export function hirePriceUsd(
+  bot: Bot,
+  perf: { pnlUsd: number; returnPct: number },
+): number {
   const base = bot.archetype === "multi-agent" ? 499 : bot.archetype === "fundamental" ? 349 : 249;
-  const perf = 1 + Math.max(0, returnPct) * 4;
-  const premium = temperamentFor(bot).kind === "aggressive" ? 1.15 : 1.0;
-  const raw = base * perf * premium;
-  return Math.max(base / 2, Math.round(raw / 10) * 10);
+  const roiPts = perf.returnPct * 100;
+
+  let raw: number;
+  if (perf.pnlUsd > 0) {
+    raw = base + perf.pnlUsd * 0.05 + Math.max(0, roiPts) * 12;
+  } else {
+    raw = base * Math.max(0.4, 1 + roiPts * 0.03);
+  }
+  return Math.max(Math.round(base * 0.4 / 10) * 10, Math.round(raw / 10) * 10);
 }

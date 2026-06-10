@@ -1,16 +1,32 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
-import { ROSTER } from "@/lib/bots/roster";
-import { getAllWallets } from "@/lib/portfolio/wallet";
-import { temperamentFor, bioFor, hirePriceUsd } from "@/lib/bots/temperament";
-import { loadSkillOverrides, effectiveSkillId } from "@/lib/brain/evolution";
-import { loadCoachNotes } from "@/lib/brain/coach";
-import { getCryptoUniverse, getMemeUniverse, getEquityUniverse } from "@/lib/market/universe";
-import { SKILLS } from "@/lib/strategy/skills";
+import EquityChart from "@/components/EquityChart";
 
-const MEME_IDS = new Set(["AGT-029", "AGT-030", "AGT-031", "AGT-032", "AGT-033", "AGT-034", "AGT-035"]);
-
-export const dynamic = "force-dynamic";
+type Card = {
+  id: string;
+  name: string;
+  handle: string;
+  archetype: string;
+  homeSymbol: string;
+  temperament: { kind: string; label: string; riskPct: number; minConfidence: number; blurb: string };
+  bio: { bio: string; strengths: string[]; weaknesses: string[] };
+  universe: { label: string; size: number };
+  skillLabel: string;
+  evolved: { from: string; at: string } | null;
+  coach: { lesson: string; modifier: number } | null;
+  equity: number;
+  pnlUsd: number;
+  returnPct: number;
+  winRate: number | null;
+  openPositions: number;
+  closedPositions: number;
+  price: number;
+  curve: number[];
+  signalCount: number;
+};
 
 const TEMPERAMENT_STYLE: Record<string, string> = {
   aggressive: "text-red-400 border-red-400/40 bg-red-400/5",
@@ -21,39 +37,21 @@ const TEMPERAMENT_STYLE: Record<string, string> = {
 const fmt = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
-export default async function HirePage() {
-  const [wallets, overrides, coachNotes, cryptoUni, memeUni, eqUni] = await Promise.all([
-    getAllWallets(),
-    loadSkillOverrides(),
-    loadCoachNotes(),
-    getCryptoUniverse().catch(() => []),
-    getMemeUniverse().catch(() => []),
-    getEquityUniverse().catch(() => []),
-  ]);
-  const byId = new Map(wallets.map((w) => [w.strategyId, w]));
+export default function HirePage() {
+  const [cards, setCards] = useState<Card[]>([]);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const cards = ROSTER.map((bot) => {
-    const w = byId.get(bot.id);
-    const ret = w?.returnPct ?? 0;
-    const skillId = effectiveSkillId(bot, overrides);
-    const universe = MEME_IDS.has(bot.id)
-      ? { label: "meme coin (mcap > $300k)", size: memeUni.length }
-      : bot.market === "CRYPTO"
-        ? { label: "Binance çifti", size: cryptoUni.length }
-        : { label: "NASDAQ hissesi", size: eqUni.length };
-    return {
-      bot,
-      wallet: w,
-      temperament: temperamentFor(bot),
-      bio: bioFor(bot),
-      price: hirePriceUsd(bot, ret),
-      skillId,
-      skillLabel: SKILLS[skillId]?.label ?? skillId,
-      evolved: overrides[bot.id] ?? null,
-      coach: coachNotes[bot.id] ?? null,
-      universe,
-    };
-  }).sort((a, b) => (b.wallet?.equity ?? 0) - (a.wallet?.equity ?? 0));
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/hire")
+        .then((r) => r.json() as Promise<{ cards: Card[] }>)
+        .then((d) => { setCards(d.cards); setUpdatedAt(new Date()); setLoading(false); })
+        .catch(() => setLoading(false));
+    load();
+    const id = setInterval(load, 60_000); // pricing re-marks every minute
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <main className="min-h-screen bg-bg px-6 py-10 font-mono">
@@ -64,102 +62,112 @@ export default async function HirePage() {
             Hire an Agent
           </h1>
           <p className="mt-2 text-xs text-fg-dim">
-            Every agent trades a $100,000 book with a tamper-proof, hash-chained track record.
-            Pricing scales with verified live performance. ∎
+            Fiyat = taban + kazandığı paranın %5&apos;i + ROI puanı başına $12 — kazandıkça pahalanır, kaybedince ucuzlar.
+            En pahalı (en çok kazanan) üstte. ∎
           </p>
+          {updatedAt && (
+            <p className="mt-1 flex items-center gap-1.5 text-[10px] tracking-widest text-green">
+              <span className="blink inline-block h-1.5 w-1.5 rounded-full bg-green" />
+              CANLI FİYATLAMA · 60 sn&apos;de bir güncellenir · {updatedAt.toLocaleTimeString("tr-TR")}
+            </p>
+          )}
         </div>
 
+        {loading && <div className="py-20 text-center text-sm text-fg-dim">Yükleniyor…</div>}
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {cards.map(({ bot, wallet, temperament, bio, price, skillLabel, evolved, coach, universe }) => {
-            const ret = wallet?.returnPct ?? 0;
-            const retColor = ret > 0 ? "text-green" : ret < 0 ? "text-red-400" : "text-fg-dim";
+          {cards.map((c, rank) => {
+            const retColor = c.returnPct > 0 ? "text-green" : c.returnPct < 0 ? "text-danger" : "text-fg-dim";
             return (
-              <div key={bot.id} className="border border-border-2 bg-surface/40 p-5">
+              <div key={c.id} className="flex flex-col border border-border-2 bg-surface/40 p-5">
                 {/* header */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <Link href={`/strategy/${bot.id}`} className="text-lg text-fg hover:text-cyan">
-                      {bot.name}
-                    </Link>
-                    <div className="text-[10px] text-fg-dim">{bot.handle} · {bot.id}</div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[10px] text-fg-mute tabular">#{rank + 1}</span>
+                      <Link href={`/strategy/${c.id}`} className="text-lg text-fg hover:text-cyan">
+                        {c.name}
+                      </Link>
+                    </div>
+                    <div className="text-[10px] text-fg-dim">{c.handle} · {c.id}</div>
                   </div>
-                  <span className={`border px-2 py-0.5 text-[10px] tracking-wider ${TEMPERAMENT_STYLE[temperament.kind]}`}>
-                    {temperament.label}
+                  <span className={`border px-2 py-0.5 text-[10px] tracking-wider ${TEMPERAMENT_STYLE[c.temperament.kind]}`}>
+                    {c.temperament.label}
                   </span>
                 </div>
 
-                {/* wallet */}
+                {/* money */}
                 <div className="mt-4 grid grid-cols-3 gap-2 border-y border-border-2 py-3 text-center">
                   <div>
-                    <div className="text-[9px] text-fg-dim">EQUITY</div>
-                    <div className="text-sm text-fg">{wallet ? fmt(wallet.equity) : "$100,000"}</div>
+                    <div className="text-[9px] text-fg-mute">EQUITY</div>
+                    <div className="text-sm text-fg tabular">{fmt(c.equity)}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] text-fg-dim">RETURN</div>
-                    <div className={`text-sm ${retColor}`}>{(ret * 100).toFixed(2)}%</div>
-                  </div>
-                  <div>
-                    <div className="text-[9px] text-fg-dim">WIN RATE</div>
-                    <div className="text-sm text-fg">
-                      {wallet?.winRate != null ? `${(wallet.winRate * 100).toFixed(0)}%` : "—"}
+                    <div className="text-[9px] text-fg-mute">KAZANÇ</div>
+                    <div className={`text-sm tabular ${c.pnlUsd >= 0 ? "text-green" : "text-danger"}`}>
+                      {c.pnlUsd >= 0 ? "+" : "−"}{fmt(Math.abs(c.pnlUsd)).slice(0)}
                     </div>
                   </div>
+                  <div>
+                    <div className="text-[9px] text-fg-mute">ROI</div>
+                    <div className={`text-sm tabular ${retColor}`}>{(c.returnPct * 100).toFixed(2)}%</div>
+                  </div>
+                </div>
+
+                {/* interactive equity chart */}
+                <div className="mt-3">
+                  <div className="mb-1 flex items-center justify-between text-[9px] text-fg-mute">
+                    <span>EQUITY EĞRİSİ — mouse ile gez</span>
+                    <span>{c.signalCount} sinyal</span>
+                  </div>
+                  <EquityChart curve={c.curve} />
                 </div>
 
                 {/* bio */}
-                <p className="mt-3 text-[11px] leading-relaxed text-fg-dim">{bio.bio}</p>
+                <p className="mt-3 text-[11px] leading-relaxed text-fg-dim">{c.bio.bio}</p>
 
-                <div className="mt-3 grid grid-cols-2 gap-3 text-[10px]">
-                  <div>
-                    <div className="mb-1 text-green/70">STRENGTHS</div>
-                    <ul className="space-y-0.5 text-fg-dim">
-                      {bio.strengths.map((s) => <li key={s}>+ {s}</li>)}
-                    </ul>
-                  </div>
-                  <div>
-                    <div className="mb-1 text-red-400/70">WEAKNESSES</div>
-                    <ul className="space-y-0.5 text-fg-dim">
-                      {bio.weaknesses.map((s) => <li key={s}>− {s}</li>)}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* trading style — live system values */}
+                {/* live system specs */}
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-fg-dim">
-                  <span>TARAMA: <span className="text-cyan">{universe.size > 0 ? `${universe.size} ${universe.label}` : universe.label}</span> / saat</span>
-                  <span>AKTİF SKILL: <span className="text-fg">{skillLabel}</span></span>
-                  <span>İŞLEM BOYUTU: <span className="text-fg">equity × {(temperament.riskPct * 100).toFixed(0)}%</span></span>
-                  <span>GÜVEN EŞİĞİ: <span className="text-fg">{temperament.minConfidence}</span></span>
-                  <span>ANA SEMBOL: <span className="text-fg">{bot.symbols[0]}</span></span>
+                  <span>TARAMA: <span className="text-cyan">{c.universe.size > 0 ? `${c.universe.size} ${c.universe.label}` : c.universe.label}</span> / saat</span>
+                  <span>AKTİF SKILL: <span className="text-fg">{c.skillLabel}</span></span>
+                  <span>BOYUT: <span className="text-fg">equity × {(c.temperament.riskPct * 100).toFixed(0)}%</span></span>
+                  <span>WIN RATE: <span className="text-fg">{c.winRate != null ? `${(c.winRate * 100).toFixed(0)}%` : "—"}</span></span>
                 </div>
-                {evolved && (
+                {c.evolved && (
                   <p className="mt-2 text-[10px] text-amber/80">
-                    ⟳ EVRİLDİ: {SKILLS[evolved.prevSkill]?.label ?? evolved.prevSkill} → {skillLabel}
-                    <span className="text-fg-mute"> ({new Date(evolved.evolvedAt).toLocaleDateString("tr-TR")})</span>
+                    ⟳ EVRİLDİ: {c.evolved.from} → {c.skillLabel}
                   </p>
                 )}
-                {coach && (
+                {c.coach && (
                   <p className="mt-1 text-[10px] text-cyan/70">
-                    ◆ KOÇ NOTU: {coach.lesson.slice(0, 110)}{coach.lesson.length > 110 ? "…" : ""}
-                    <span className="text-fg-mute"> (çarpan {coach.modifier}×)</span>
+                    ◆ KOÇ: {c.coach.lesson.slice(0, 100)}{c.coach.lesson.length > 100 ? "…" : ""} ({c.coach.modifier}×)
                   </p>
                 )}
-                <p className="mt-2 text-[10px] italic text-fg-dim">&ldquo;{temperament.blurb}&rdquo;</p>
 
-                {/* price */}
-                <div className="mt-4 flex items-center justify-between border-t border-border-2 pt-3">
-                  <div>
-                    <div className="text-xl text-fg">{fmt(price)}<span className="text-[10px] text-fg-dim">/mo</span></div>
-                    <div className="text-[9px] text-fg-dim">
-                      {wallet?.closedPositions ?? 0} closed trades · {wallet?.openPositions ?? 0} open
+                {/* price + actions — pinned to card bottom */}
+                <div className="mt-auto pt-4">
+                  <div className="flex items-center justify-between border-t border-border-2 pt-3">
+                    <div>
+                      <div className="text-xl text-fg tabular">{fmt(c.price)}<span className="text-[10px] text-fg-dim">/ay</span></div>
+                      <div className="text-[9px] text-fg-mute">
+                        {c.closedPositions} kapalı · {c.openPositions} açık işlem
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/strategy/${c.id}`}
+                        className="border border-border-2 px-3 py-2 text-[10px] tracking-wider text-fg-dim hover:border-fg-dim hover:text-fg"
+                      >
+                        KAYITLAR
+                      </Link>
+                      <button
+                        title="Ödeme entegrasyonu yakında"
+                        className="cursor-not-allowed border border-cyan/40 bg-cyan/5 px-4 py-2 text-[11px] tracking-wider text-cyan/60"
+                      >
+                        KİRALA · YAKINDA
+                      </button>
                     </div>
                   </div>
-                  <Link
-                    href={`/strategy/${bot.id}`}
-                    className="border border-cyan/40 bg-cyan/5 px-4 py-2 text-[11px] tracking-wider text-cyan hover:bg-cyan/15"
-                  >
-                    VIEW TRACK RECORD →
-                  </Link>
                 </div>
               </div>
             );
