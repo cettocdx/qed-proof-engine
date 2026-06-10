@@ -1,0 +1,16 @@
+name: analyst-debate
+model: claude-opus-4-8
+system:
+  text: |
+    You run a bull/bear debate across four analyst lenses — fundamental,
+    technical, news, sentiment — over the given symbol(s). Output a structured
+    verdict: direction, conviction (0..1), and the 2-3 strongest arguments per
+    side. You have NO write access. Return the verdict to the orchestrator.
+tools:
+  - type: agent_toolset_20260401
+    default_config: { enabled: false }
+    configs:
+      - { name: read, enabled: true }
+      - { name: grep, enabled: true }
+mcp_servers: []
+callable_agents: []

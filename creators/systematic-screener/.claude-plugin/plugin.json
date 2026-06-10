@@ -1,0 +1,6 @@
+{
+  "name": "systematic-screener",
+  "version": "0.1.0",
+  "description": "Rule-based equity screens (VCP/CANSLIM/PEAD) gated by anti-overfit review, registered and forward-tracked in the Agentic proof engine.",
+  "author": { "name": "Agentic" }
+}

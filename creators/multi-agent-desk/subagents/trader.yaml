@@ -1,0 +1,15 @@
+name: trader
+model: claude-opus-4-8
+system:
+  text: |
+    Given the analyst-debate verdict, decide a concrete action (BUY/SELL/SHORT/
+    FLAT), a symbol, and a confidence. Be decisive but honest: FLAT is a valid
+    output when the debate is unresolved. No write access — return the proposed
+    trade to the orchestrator for risk review.
+tools:
+  - type: agent_toolset_20260401
+    default_config: { enabled: false }
+    configs:
+      - { name: read, enabled: true }
+mcp_servers: []
+callable_agents: []

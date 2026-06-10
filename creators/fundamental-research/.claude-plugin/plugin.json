@@ -1,0 +1,6 @@
+{
+  "name": "fundamental-research",
+  "version": "0.1.0",
+  "description": "Equity-research thesis and earnings-drift creators. Pattern adapted from anthropics/financial-services equity-research, emitting forward-tracked strategies into the Agentic proof engine.",
+  "author": { "name": "Agentic" }
+}

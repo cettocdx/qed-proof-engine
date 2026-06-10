@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.gstack/
+
+# bulky regenerable data — keep ledger/positions, skip caches & logs
+lib/data/market-cache/
+lib/data/*.log
+

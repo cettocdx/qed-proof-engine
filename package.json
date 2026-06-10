@@ -6,21 +6,37 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "ledger:seed": "tsx scripts/seed-ledger.ts",
+    "ledger:verify": "tsx scripts/verify-ledger.ts",
+    "bots:run": "tsx scripts/run-bots.ts",
+    "bots:run:crypto": "tsx scripts/run-bots.ts --crypto",
+    "bots:run:llm": "tsx scripts/run-bots.ts --llm",
+    "bots:live": "tsx scripts/run-bots.ts --live"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "dotenv": "^17.4.2",
+    "framer-motion": "^12.40.0",
     "next": "16.2.7",
+    "openai": "^6.42.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "three": "^0.184.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.184.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }

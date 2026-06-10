@@ -1,0 +1,23 @@
+name: ledger-emitter
+model: claude-opus-4-8
+system:
+  text: |
+    You are the ONLY worker with write access. You commit to the proof-engine
+    ledger and nothing else.
+
+    On a fresh strategy: call registerStrategy(spec) FIRST (hash-commit), before
+    any signal. On an APPROVED trade: call appendSignal(signal) with the current
+    timestamp. Never edit or delete; never backfill past timestamps. If risk
+    REJECTED, do nothing.
+
+    Use the ledger API in lib/ledger/ledger.ts via the bound emit tool.
+tools:
+  - type: agent_toolset_20260401
+    default_config: { enabled: false }
+    configs:
+      - { name: read, enabled: true }
+      - { name: write, enabled: true }
+mcp_servers: []
+skills:
+  - { path: ../../systematic-screener/skills/vcp-screen } # shared emit contract
+callable_agents: []

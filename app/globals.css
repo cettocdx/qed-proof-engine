@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
+/* ─── Agentic design tokens ─────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg:        #020617;
+  --surface:   #0f172a;
+  --surface-2: #1e293b;
+  --border:    #1e2a3f;
+  --border-2:  #334155;
+  --fg:        #f8fafc;
+  --fg-dim:    #64748b;
+  --fg-mute:   #334155;
+  --green:     #22c55e;
+  --cyan:      #22d3ee;
+  --amber:     #f59e0b;
+  --danger:    #ef4444;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-2: var(--border-2);
+  --color-fg: var(--fg);
+  --color-fg-dim: var(--fg-dim);
+  --color-fg-mute: var(--fg-mute);
+  --color-green: var(--green);
+  --color-cyan: var(--cyan);
+  --color-amber: var(--amber);
+  --color-danger: var(--danger);
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-serif: var(--font-instrument), Georgia, serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+html { background: var(--bg); }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ─── HUD utilities ─────────────────────────────────────────────────── */
+
+/* fine technical grid */
+.hud-grid {
+  background-image:
+    linear-gradient(to right, rgba(51, 65, 85, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(51, 65, 85, 0.16) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* radial vignette to focus the center */
+.hud-vignette {
+  background: radial-gradient(ellipse 75% 65% at 50% 42%, transparent 38%, var(--bg) 100%);
+}
+
+/* faint horizontal scanline texture */
+.hud-scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(0, 0, 0, 0.16) 3px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.4;
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* blinking status dot */
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+.blink { animation: blink 1.4s steps(1) infinite; }
+
+/* slow vertical sweep line */
+@keyframes sweep {
+  0%   { transform: translateY(0); opacity: 0; }
+  8%   { opacity: 0.5; }
+  92%  { opacity: 0.5; }
+  100% { transform: translateY(70vh); opacity: 0; }
+}
+.sweep { animation: sweep 7s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .blink, .sweep { animation: none; }
 }

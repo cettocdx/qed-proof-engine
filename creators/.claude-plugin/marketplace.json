@@ -1,0 +1,19 @@
+{
+  "name": "agentic-creators",
+  "owner": { "name": "Agentic" },
+  "description": "Strategy-creator agents that emit hash-committed specs + forward signals into the Agentic proof engine. Structure mirrors anthropics/financial-services.",
+  "plugins": [
+    {
+      "name": "systematic-screener",
+      "displayName": "Systematic Screener",
+      "source": "./systematic-screener",
+      "description": "Rule-based screens (VCP/CANSLIM/PEAD) gated by anti-overfit review, emitted as forward-tracked strategies."
+    },
+    {
+      "name": "fundamental-research",
+      "displayName": "Fundamental Research",
+      "source": "./fundamental-research",
+      "description": "Equity-research thesis + earnings-drift creators (pattern from anthropics/financial-services equity-research)."
+    }
+  ]
+}

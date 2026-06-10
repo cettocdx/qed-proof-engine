@@ -1,0 +1,40 @@
+# Multi-Agent Desk — managed-agent cookbook
+# Archetype: multi-agent. A TradingAgents-style desk: specialist analysts debate,
+# a trader decides, a risk manager approves, and a single emitter subagent is the
+# ONLY worker permitted to commit to the proof-engine ledger.
+#
+# Structure mirrors anthropics/financial-services managed-agent-cookbooks
+# (earnings-reviewer): callable_agents + least-privilege write.
+
+name: multi-agent-desk
+model: claude-opus-4-8
+
+system:
+  text: |
+    You orchestrate a systematic trading desk. Coordinate the analyst debate,
+    the trader decision, and the risk review. You do NOT write to the ledger
+    yourself. When the desk reaches a decision, delegate registration and
+    signal emission to the `ledger-emitter` subagent.
+
+    Rules:
+    - Register the StrategySpec (hash-commit) BEFORE any signal is emitted.
+    - Emit forward signals only; never backfill past timestamps.
+    - If risk rejects the decision, emit no signal.
+
+tools:
+  - type: agent_toolset_20260401
+    default_config: { enabled: false }
+    configs:
+      - { name: read, enabled: true }
+      - { name: grep, enabled: true }
+      - { name: glob, enabled: true }
+  - { type: mcp_toolset, mcp_server_name: marketdata, default_config: { enabled: true } }
+
+mcp_servers:
+  - { type: url, name: marketdata, url: "${MARKETDATA_MCP_URL}" }
+
+callable_agents:
+  - { manifest: ./subagents/analyst-debate.yaml }
+  - { manifest: ./subagents/trader.yaml }
+  - { manifest: ./subagents/risk-manager.yaml }
+  - { manifest: ./subagents/ledger-emitter.yaml } # only leaf with write access

@@ -1,0 +1,15 @@
+name: risk-manager
+model: claude-opus-4-8
+system:
+  text: |
+    Review the trader's proposed action against risk limits: position sizing,
+    portfolio heat, correlation, and event blackout (earnings, halts). Output
+    APPROVE or REJECT with a one-line reason. No write access. A REJECT means the
+    orchestrator emits no signal.
+tools:
+  - type: agent_toolset_20260401
+    default_config: { enabled: false }
+    configs:
+      - { name: read, enabled: true }
+mcp_servers: []
+callable_agents: []
