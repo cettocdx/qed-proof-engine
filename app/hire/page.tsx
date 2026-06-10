@@ -3,6 +3,12 @@ import SiteNav from "@/components/SiteNav";
 import { ROSTER } from "@/lib/bots/roster";
 import { getAllWallets } from "@/lib/portfolio/wallet";
 import { temperamentFor, bioFor, hirePriceUsd } from "@/lib/bots/temperament";
+import { loadSkillOverrides, effectiveSkillId } from "@/lib/brain/evolution";
+import { loadCoachNotes } from "@/lib/brain/coach";
+import { getCryptoUniverse, getMemeUniverse, getEquityUniverse } from "@/lib/market/universe";
+import { SKILLS } from "@/lib/strategy/skills";
+
+const MEME_IDS = new Set(["AGT-029", "AGT-030", "AGT-031", "AGT-032", "AGT-033", "AGT-034", "AGT-035"]);
 
 export const dynamic = "force-dynamic";
 
@@ -16,18 +22,36 @@ const fmt = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 export default async function HirePage() {
-  const wallets = await getAllWallets();
+  const [wallets, overrides, coachNotes, cryptoUni, memeUni, eqUni] = await Promise.all([
+    getAllWallets(),
+    loadSkillOverrides(),
+    loadCoachNotes(),
+    getCryptoUniverse().catch(() => []),
+    getMemeUniverse().catch(() => []),
+    getEquityUniverse().catch(() => []),
+  ]);
   const byId = new Map(wallets.map((w) => [w.strategyId, w]));
 
   const cards = ROSTER.map((bot) => {
     const w = byId.get(bot.id);
     const ret = w?.returnPct ?? 0;
+    const skillId = effectiveSkillId(bot, overrides);
+    const universe = MEME_IDS.has(bot.id)
+      ? { label: "meme coin (mcap > $300k)", size: memeUni.length }
+      : bot.market === "CRYPTO"
+        ? { label: "Binance çifti", size: cryptoUni.length }
+        : { label: "NASDAQ hissesi", size: eqUni.length };
     return {
       bot,
       wallet: w,
       temperament: temperamentFor(bot),
       bio: bioFor(bot),
       price: hirePriceUsd(bot, ret),
+      skillId,
+      skillLabel: SKILLS[skillId]?.label ?? skillId,
+      evolved: overrides[bot.id] ?? null,
+      coach: coachNotes[bot.id] ?? null,
+      universe,
     };
   }).sort((a, b) => (b.wallet?.equity ?? 0) - (a.wallet?.equity ?? 0));
 
@@ -46,7 +70,7 @@ export default async function HirePage() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {cards.map(({ bot, wallet, temperament, bio, price }) => {
+          {cards.map(({ bot, wallet, temperament, bio, price, skillLabel, evolved, coach, universe }) => {
             const ret = wallet?.returnPct ?? 0;
             const retColor = ret > 0 ? "text-green" : ret < 0 ? "text-red-400" : "text-fg-dim";
             return (
@@ -100,13 +124,26 @@ export default async function HirePage() {
                   </div>
                 </div>
 
-                {/* trading style */}
+                {/* trading style — live system values */}
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-fg-dim">
-                  <span>RISK/TRADE: <span className="text-fg">{(temperament.riskPct * 100).toFixed(0)}%</span></span>
-                  <span>MIN CONF: <span className="text-fg">{temperament.minConfidence}</span></span>
-                  <span>MARKET: <span className="text-fg">{bot.symbols[0]}</span></span>
-                  <span>SKILL: <span className="text-fg">{bot.skill}</span></span>
+                  <span>TARAMA: <span className="text-cyan">{universe.size > 0 ? `${universe.size} ${universe.label}` : universe.label}</span> / saat</span>
+                  <span>AKTİF SKILL: <span className="text-fg">{skillLabel}</span></span>
+                  <span>İŞLEM BOYUTU: <span className="text-fg">equity × {(temperament.riskPct * 100).toFixed(0)}%</span></span>
+                  <span>GÜVEN EŞİĞİ: <span className="text-fg">{temperament.minConfidence}</span></span>
+                  <span>ANA SEMBOL: <span className="text-fg">{bot.symbols[0]}</span></span>
                 </div>
+                {evolved && (
+                  <p className="mt-2 text-[10px] text-amber/80">
+                    ⟳ EVRİLDİ: {SKILLS[evolved.prevSkill]?.label ?? evolved.prevSkill} → {skillLabel}
+                    <span className="text-fg-mute"> ({new Date(evolved.evolvedAt).toLocaleDateString("tr-TR")})</span>
+                  </p>
+                )}
+                {coach && (
+                  <p className="mt-1 text-[10px] text-cyan/70">
+                    ◆ KOÇ NOTU: {coach.lesson.slice(0, 110)}{coach.lesson.length > 110 ? "…" : ""}
+                    <span className="text-fg-mute"> (çarpan {coach.modifier}×)</span>
+                  </p>
+                )}
                 <p className="mt-2 text-[10px] italic text-fg-dim">&ldquo;{temperament.blurb}&rdquo;</p>
 
                 {/* price */}

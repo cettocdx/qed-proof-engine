@@ -73,18 +73,18 @@ export interface AgentBio {
 }
 
 const DEFAULT_BIO = (bot: Bot): AgentBio => ({
-  bio: `${bot.name} is a ${bot.profile.riskLevel}-risk ${bot.archetype} agent specialised in ${bot.profile.specialty}. ${bot.profile.tagline}`,
-  strengths: [`${bot.profile.specialty} expertise`, "Disciplined rule execution", "Tamper-proof track record"],
-  weaknesses: ["Single-symbol focus", "Regime changes can hurt"],
-  bestMarket: bot.market === "CRYPTO" ? "Trending crypto markets" : "Liquid US large-caps",
+  bio: `${bot.name} is a ${bot.profile.riskLevel}-risk ${bot.archetype} agent. Home turf: ${bot.profile.specialty}. Every hour it scans its entire market universe, sends the best setup through a 4-layer brain (regime-weighted ensemble → memory → LLM analyst panel → risk veto) and sizes the trade from its live equity. ${bot.profile.tagline}`,
+  strengths: ["Full-market universe scanning", "4-layer decision brain with LLM risk veto", "Nightly self-optimization (walk-forward)", "Tamper-proof hash-chained record"],
+  weaknesses: ["Needs liquid markets with candle history", "Regime shifts between scans can hurt"],
+  bestMarket: bot.market === "CRYPTO" ? "Trending, liquid crypto markets" : "Liquid NASDAQ names",
 });
 
 const BIOS: Record<string, Partial<AgentBio>> = {
-  "AGT-001": { bio: "Atlas is the house veteran — a momentum purist that rides Bitcoin's primary trend and refuses to fight it. Built on the classic 12-1 momentum factor, it goes with strength and steps aside in chop.", strengths: ["Long crypto bull legs", "Never fights the tape", "Low churn"], weaknesses: ["Whipsawed in ranging markets", "Late to reversals"] },
-  "AGT-002": { bio: "Vega fades panic and sells euphoria on Ethereum. An RSI mean-reversion engine that buys blood and exits into strength — the contrarian of the desk.", strengths: ["Catching capitulation lows", "High win rate in ranges"], weaknesses: ["Bleeds in strong trends", "Early entries"] },
-  "AGT-020": { bio: "Hermes is the fastest agent on the desk — a gap-and-go specialist on AMD that exploits overnight information shocks. In by the open's confirmation, out before the close.", strengths: ["Earnings season alpha", "No overnight risk on losers"], weaknesses: ["Needs volatility to eat", "Gap fades hurt"] },
-  "AGT-029": { bio: "Doge Rex rides the original memecoin with a momentum engine. When DOGE catches a social-media bid, Rex is already positioned — pure high-octane degen momentum with systematic discipline.", strengths: ["Explosive meme rallies", "Systematic exit discipline"], weaknesses: ["Brutal drawdowns possible", "Sentiment reversals"] },
-  "AGT-035": { bio: "Meme Desk is a four-analyst LLM committee that debates every DOGE trade — technical, macro, sentiment and a risk officer with veto power. The only desk where 'degen' meets due diligence.", strengths: ["Multi-perspective analysis", "Risk officer veto", "LLM-powered reasoning"], weaknesses: ["Slower decision cycle", "API dependency"] },
+  "AGT-001": { bio: "Atlas is the house veteran — a momentum purist born on Bitcoin, now hunting the strongest trend across 400+ Binance pairs every hour. It goes with strength, steps aside in chop, and lets the nightly evolution engine retune its parameters.", strengths: ["Catching the market's strongest trend leg", "Never fights the tape", "Low churn"], weaknesses: ["Whipsawed in ranging markets", "Late to reversals"] },
+  "AGT-002": { bio: "Vega fades panic and sells euphoria — the desk contrarian. Born on Ethereum, it now sweeps the whole crypto universe for the most stretched, snap-back-ready chart each hour and fades it.", strengths: ["Catching capitulation lows anywhere in the market", "High win rate in ranges"], weaknesses: ["Bleeds in strong trends", "Early entries"] },
+  "AGT-020": { bio: "Hermes is the fastest agent on the desk — an overnight-shock hunter scanning thousands of NASDAQ names for explosive gaps with volume confirmation. In on confirmation, out before it fades.", strengths: ["Earnings season alpha across the whole exchange", "No overnight risk on losers"], weaknesses: ["Needs volatility to eat", "Gap fades hurt"] },
+  "AGT-029": { bio: "Doge Rex is the alpha of the meme pack. Born on DOGE, it now stalks every meme coin above $300k market cap, riding whichever one catches the social-media bid first — degen momentum with systematic discipline.", strengths: ["Explosive meme rallies, any coin", "Systematic exit discipline"], weaknesses: ["Brutal drawdowns possible", "Sentiment reversals"] },
+  "AGT-035": { bio: "Meme Desk is a four-analyst LLM committee for the entire meme market — technical, macro and sentiment analysts debate the hour's best meme setup, then a risk officer with absolute veto signs off. The only desk where 'degen' meets due diligence.", strengths: ["Multi-perspective analysis", "Risk officer veto", "LLM-powered reasoning"], weaknesses: ["Slower decision cycle", "API dependency"] },
 };
 
 export function bioFor(bot: Bot): AgentBio {
