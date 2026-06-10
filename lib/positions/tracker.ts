@@ -7,8 +7,9 @@ import type { Source } from "../market/data";
 /**
  * Position tracker — persists open/closed positions to positions.jsonl.
  *
- * Each bot can have at most one open position at a time. When a new signal
- * flips direction, the existing position is closed and a new one opened.
+ * Each bot can hold one open position PER SYMBOL (max 3 symbols at once).
+ * A new signal on the same symbol flips/replaces that position; other
+ * symbols' positions are untouched and exit via stop/target/time.
  *
  * Stop-loss:    2× ATR from entry (real volatility-based stop)
  * Take-profit:  4× ATR from entry (2:1 R/R minimum)
@@ -97,10 +98,18 @@ export async function openPosition(opts: {
   const all = await readAll();
   const a = atr(opts.atrBars);
 
-  // Close existing position for this strategy
+  // Cap concurrent exposure: max 3 open symbols per bot
+  const openOthers = all.filter(
+    (p) => p.strategyId === opts.strategyId && p.status === "open" && p.symbol !== opts.symbol,
+  );
+  if (openOthers.length >= 3) {
+    throw new Error("max-positions: bot already holds 3 open symbols");
+  }
+
+  // Close existing position on the SAME symbol only (price belongs to it)
   let changed = false;
   for (const p of all) {
-    if (p.strategyId === opts.strategyId && p.status === "open") {
+    if (p.strategyId === opts.strategyId && p.symbol === opts.symbol && p.status === "open") {
       p.status = "closed";
       p.exitPrice = opts.entryPrice;
       p.exitTs = opts.entryTs;

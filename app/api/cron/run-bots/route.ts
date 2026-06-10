@@ -10,7 +10,7 @@ import { getWallet } from "@/lib/portfolio/wallet";
 import { loadSkillOverrides, effectiveSkillId, type SkillOverrides } from "@/lib/brain/evolution";
 import { loadOptimizedParams, type OptimizedParams } from "@/lib/brain/optimizer";
 import { loadCoachNotes, type CoachNotes } from "@/lib/brain/coach";
-import { ROSTER } from "@/lib/bots/roster";
+import { ROSTER, universeFor } from "@/lib/bots/roster";
 import type { Bot } from "@/lib/bots/roster";
 import type { Bar } from "@/lib/market/data";
 
@@ -59,57 +59,80 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
   const skill = SKILLS[skillId];
   if (!skill) return { id: bot.id, name: bot.name, signals: 0, note: "unknown skill" };
 
-  let bars: Bar[];
-  try {
-    bars = await getBars(bot.symbols[0], bot.source, INTRADAY_INTERVAL, INTRADAY_LIMIT);
-  } catch (e) {
-    return { id: bot.id, name: bot.name, signals: 0, note: `data: ${(e as Error).message}` };
-  }
-  if (bars.length < skill.lookback + 10) {
-    return { id: bot.id, name: bot.name, signals: 0, note: "insufficient bars" };
-  }
-
-  await ensureSpec(bot, bars, knownIds);
-
-  // Deduplicate: at most one signal per 15-minute bucket
-  const last = bars[bars.length - 1];
+  const existing = await getSignals(bot.id);
   const bucket = (ts: string) => ts.slice(0, 14) + String(Math.floor(+ts.slice(14, 16) / 15));
   const nowBucket = bucket(new Date().toISOString());
-  const existing = await getSignals(bot.id);
-  if (existing.some((s) => bucket(s.ts) === nowBucket)) {
-    return { id: bot.id, name: bot.name, signals: 0, note: "already emitted this window" };
-  }
 
-  // ── Brain Pipeline ────────────────────────────────────────────────────
   const brainOpts = {
     skillId,
     skillParams: ctx.optimized[bot.id]?.skillId === skillId ? ctx.optimized[bot.id].params : null,
     coachModifier: ctx.coachNotes[bot.id]?.modifier ?? 1.0,
   };
 
+  // ── Universe scan: fast brain (L1+L2, free) on EVERY symbol ───────────
+  // The bot is not married to one ticker — it hunts the best setup in its
+  // whole market each run, then sends only the winner through the LLM layers.
+  type Candidate = {
+    symbol: string;
+    bars: Bar[];
+    action: "BUY" | "SELL" | "SHORT" | "COVER" | "FLAT";
+    confidence: number;
+    rationale: string;
+  };
+  const candidates: Candidate[] = [];
+  let specEnsured = false;
+
+  for (const symbol of universeFor(bot)) {
+    // one signal per (bot, symbol) per 15-minute window
+    if (existing.some((s) => s.symbol === symbol && bucket(s.ts) === nowBucket)) continue;
+
+    let bars: Bar[];
+    try {
+      bars = await getBars(symbol, bot.source, INTRADAY_INTERVAL, INTRADAY_LIMIT);
+    } catch {
+      continue;
+    }
+    if (bars.length < skill.lookback + 10) continue;
+
+    if (!specEnsured) {
+      await ensureSpec(bot, bars, knownIds);
+      specEnsured = true;
+    }
+
+    const fast = runBrainFast(bot, bars, existing, brainOpts);
+    if (fast) {
+      candidates.push({ symbol, bars, ...fast });
+    }
+  }
+
+  if (candidates.length === 0) {
+    return { id: bot.id, name: bot.name, signals: 0, note: "scan:no-setup" };
+  }
+
+  // Best setup wins the bot's attention this run
+  candidates.sort((a, b) => b.confidence - a.confidence);
+  const pick = candidates[0];
+  const bars = pick.bars;
+  const last = bars[bars.length - 1];
+
   let decision;
-  let layersSummary = "";
+  let layersSummary = `scan:${candidates.length}/${universeFor(bot).length} pick:${pick.symbol}`;
 
   if (useLlm) {
-    // Full 4-layer pipeline (L1 ensemble + L2 memory + L3 panel + L4 veto)
+    // Full 4-layer pipeline only on the winning symbol (controls LLM cost)
     const result = await runBrainPipeline(bot, bars, existing, brainOpts);
     if (result) {
       decision = { action: result.action, confidence: result.confidence, rationale: result.rationale };
       const e = result.layers.ensemble;
       const v = result.layers.veto;
-      layersSummary = `ens:${e.bullVotes}B/${e.bearVotes}S regime:${e.regime.regime} veto:${v?.verdict ?? "skip"}`;
+      layersSummary += ` ens:${e.bullVotes}B/${e.bearVotes}S regime:${e.regime.regime} veto:${v?.verdict ?? "skip"}`;
     }
   } else {
-    // Fast path: L1 ensemble + L2 memory only (no LLM cost)
-    const result = runBrainFast(bot, bars, existing, brainOpts);
-    if (result) {
-      decision = result;
-      layersSummary = "ens+mem";
-    }
+    decision = { action: pick.action, confidence: pick.confidence, rationale: pick.rationale };
   }
 
   if (!decision) {
-    return { id: bot.id, name: bot.name, signals: 0, note: "brain:no-consensus" };
+    return { id: bot.id, name: bot.name, signals: 0, note: `brain:vetoed (${pick.symbol})` };
   }
 
   // ── Temperament gate + equity-based sizing ────────────────────────────
@@ -133,7 +156,7 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
     strategyId: bot.id,
     ts: signalTs,
     action: decision.action,
-    symbol: bot.symbols[0],
+    symbol: pick.symbol,
     meta: {
       price: +last.c.toPrecision(8), // keep precision for sub-cent memecoins
       confidence: +decision.confidence.toFixed(2),
@@ -151,7 +174,7 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
   const side = decision.action === "BUY" || decision.action === "COVER" ? "long" : "short";
   await openPosition({
     strategyId: bot.id,
-    symbol: bot.symbols[0],
+    symbol: pick.symbol,
     market: bot.market,
     source: bot.source,
     side,
@@ -169,7 +192,7 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
     id: bot.id,
     name: bot.name,
     signals: 1,
-    note: `${decision.action} conf=${decision.confidence.toFixed(2)} | ${paperNote}`,
+    note: `${decision.action} ${pick.symbol} conf=${decision.confidence.toFixed(2)} | ${paperNote}`,
     layers: layersSummary,
   };
 }

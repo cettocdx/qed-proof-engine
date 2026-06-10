@@ -1,6 +1,6 @@
 import { getAllPositions } from "../positions/tracker";
 import { getSignals } from "../ledger/ledger";
-import { backtestFromSignals } from "../strategy/backtest";
+import { backtestPortfolio } from "../strategy/backtest";
 import { getBars } from "../market/data";
 import { ROSTER } from "../bots/roster";
 import type { Bot } from "../bots/roster";
@@ -41,10 +41,10 @@ function directionOf(action: Signal["action"]): number {
   return 0;
 }
 
-/** Latest close for the bot's symbol — best-effort. */
-async function markPrice(bot: Bot): Promise<number | null> {
+/** Latest close for a symbol — best-effort. */
+async function markPriceFor(symbol: string, bot: Bot): Promise<number | null> {
   try {
-    const bars = await getBars(bot.symbols[0], bot.source, "1h", 2);
+    const bars = await getBars(symbol, bot.source, "1h", 2);
     return bars.length ? bars[bars.length - 1].c : null;
   } catch {
     return null;
@@ -57,25 +57,31 @@ export async function getWallet(
   signals?: Signal[],
 ): Promise<Wallet> {
   const sigs = signals ?? (await getSignals(bot.id));
-  const bt = backtestFromSignals(sigs);
+  const bt = backtestPortfolio(sigs);
 
   // Realized career equity (marked to the last signal's real price)
   const realizedEquity = STARTING_CAPITAL * (1 + bt.totalReturnPct / 100);
   const realizedPnl = realizedEquity - STARTING_CAPITAL;
 
-  // Unrealized: position implied by the latest signal, marked to live price
+  // Unrealized: each traded symbol is an equal-weight sleeve; mark the last
+  // signal of every sleeve to its live price.
   let unrealizedPnl = 0;
-  const last = [...sigs]
-    .filter((s) => typeof s.meta?.price === "number" && s.meta.price! > 0)
-    .sort((a, b) => a.ts.localeCompare(b.ts))
-    .pop();
-  const dir = last ? directionOf(last.action) : 0;
-  if (last && dir !== 0) {
-    const mark = await markPrice(bot);
-    if (mark != null) {
-      const move = ((mark - last.meta!.price!) / last.meta!.price!) * dir;
-      unrealizedPnl = realizedEquity * move;
-    }
+  const bySymbol = new Map<string, Signal>();
+  for (const s of [...sigs].sort((a, b) => a.ts.localeCompare(b.ts))) {
+    if (typeof s.meta?.price === "number" && s.meta.price > 0) bySymbol.set(s.symbol, s);
+  }
+  if (bySymbol.size > 0) {
+    const sleeveCapital = realizedEquity / bySymbol.size;
+    await Promise.all(
+      [...bySymbol.values()].map(async (last) => {
+        const dir = directionOf(last.action);
+        if (dir === 0) return;
+        const mark = await markPriceFor(last.symbol, bot);
+        if (mark == null) return;
+        const move = ((mark - last.meta!.price!) / last.meta!.price!) * dir;
+        unrealizedPnl += sleeveCapital * move;
+      }),
+    );
   }
 
   const equity = realizedEquity + unrealizedPnl;

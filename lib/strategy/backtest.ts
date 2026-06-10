@@ -119,3 +119,41 @@ export function backtestFromSignals(signals: Signal[]): BacktestResult {
       : 0,
   };
 }
+
+/**
+ * Multi-symbol career backtest. Signals are grouped per symbol into
+ * independent "sleeves" (mixing symbols in one sequence would compute P&L
+ * from price jumps between different assets). Sleeve results are combined
+ * equal-weight: total return is the mean across sleeves.
+ */
+export function backtestPortfolio(signals: Signal[]): BacktestResult {
+  const bySymbol = new Map<string, Signal[]>();
+  for (const s of signals) {
+    const arr = bySymbol.get(s.symbol) ?? [];
+    arr.push(s);
+    bySymbol.set(s.symbol, arr);
+  }
+
+  const sleeves = [...bySymbol.values()]
+    .map((sigs) => backtestFromSignals(sigs))
+    .filter((r) => r.segments > 0);
+
+  if (sleeves.length === 0) return backtestFromSignals(signals);
+  if (sleeves.length === 1) return sleeves[0];
+
+  const mean = (xs: number[]) => xs.reduce((a, c) => a + c, 0) / xs.length;
+  const longest = sleeves.reduce((a, c) => (c.curve.length > a.curve.length ? c : a));
+  const totalSegs = sleeves.reduce((a, c) => a + c.segments, 0);
+
+  return {
+    curve: longest.curve,
+    totalReturnPct: +mean(sleeves.map((s) => s.totalReturnPct)).toFixed(1),
+    maxDrawdownPct: +Math.min(...sleeves.map((s) => s.maxDrawdownPct)).toFixed(1),
+    sharpe: +mean(sleeves.map((s) => s.sharpe)).toFixed(2),
+    winRatePct: Math.round(
+      sleeves.reduce((a, c) => a + c.winRatePct * c.segments, 0) / totalSegs,
+    ),
+    segments: totalSegs,
+    exposurePct: Math.round(mean(sleeves.map((s) => s.exposurePct))),
+  };
+}

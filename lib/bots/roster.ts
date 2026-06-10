@@ -87,3 +87,32 @@ export const ROSTER: Bot[] = [
 export function botById(botId: string): Bot | undefined {
   return ROSTER.find((b) => b.id === botId);
 }
+
+// ── Symbol universes — every bot scans a whole market, not one ticker ──────
+export const CRYPTO_UNIVERSE = [
+  "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD", "ADA-USD",
+  "AVAX-USD", "LINK-USD", "DOT-USD", "LTC-USD", "ATOM-USD", "NEAR-USD",
+];
+export const MEME_UNIVERSE = [
+  "DOGE-USD", "SHIB-USD", "PEPE-USD", "WIF-USD", "BONK-USD", "FLOKI-USD",
+];
+export const EQ_UNIVERSE = [
+  "NVDA", "AAPL", "MSFT", "AMD", "META", "TSLA",
+  "GOOGL", "AMZN", "AVGO", "CRWD", "PLTR", "NFLX",
+];
+
+const MEME_BOT_IDS = new Set(["AGT-029", "AGT-030", "AGT-031", "AGT-032", "AGT-033", "AGT-034", "AGT-035"]);
+
+/**
+ * The full symbol list a bot scans each run. Its home symbol (roster
+ * `symbols[0]`) comes first; the rest of its market universe follows.
+ */
+export function universeFor(bot: Bot): string[] {
+  const home = bot.symbols[0];
+  const pool = MEME_BOT_IDS.has(bot.id)
+    ? MEME_UNIVERSE
+    : bot.market === "CRYPTO"
+      ? CRYPTO_UNIVERSE
+      : EQ_UNIVERSE;
+  return [home, ...pool.filter((s) => s !== home)];
+}

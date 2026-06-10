@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { canonical, entryHash } from "./hash";
-import { backtestFromSignals } from "../strategy/backtest";
+import { backtestPortfolio } from "../strategy/backtest";
 import {
   GENESIS_HASH,
   type LedgerEntry,
@@ -152,7 +152,7 @@ function metricsFor(
   sigs: Signal[],
   liveDays: number,
 ): StrategyMetrics {
-  const bt = backtestFromSignals(sigs);
+  const bt = backtestPortfolio(sigs);
   const enough = sigs.length >= 2;
 
   const status: StrategyMetrics["status"] =
