@@ -103,6 +103,15 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
     }
     if (bars.length < skill.lookback + 10) continue;
 
+    // Liquidity filter for equities: no penny stocks, no dead volume.
+    // Illiquid names produce untradeable "phantom" signals and absurd P&L.
+    if (bot.market === "US-EQ") {
+      const lastBar = bars[bars.length - 1];
+      const recent = bars.slice(-20);
+      const avgDollarVol = recent.reduce((a, b) => a + b.c * b.v, 0) / recent.length;
+      if (lastBar.c < 5 || avgDollarVol < 2_000_000) continue;
+    }
+
     if (!specEnsured) {
       await ensureSpec(bot, bars, knownIds);
       specEnsured = true;

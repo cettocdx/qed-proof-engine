@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import { getStrategyDetail } from "@/lib/ledger/ledger";
+import { getWallet } from "@/lib/portfolio/wallet";
+import { botById } from "@/lib/bots/roster";
 import type { StrategyDetail } from "@/lib/ledger/schema";
 
 type SpecProfile = {
@@ -86,6 +88,9 @@ export default async function StrategyPage({
   const detail: StrategyDetail | null = await getStrategyDetail(id);
   if (!detail) notFound();
 
+  const bot = botById(id);
+  const wallet = bot ? await getWallet(bot).catch(() => null) : null;
+
   const { metrics, commit, signals, chain } = detail;
   const { spec } = metrics;
   const specParams = spec.params as {
@@ -160,6 +165,23 @@ export default async function StrategyPage({
           </p>
         </div>
 
+        {/* live wallet — the numbers that exist from day one */}
+        {wallet && (
+          <div className="mb-3 grid grid-cols-3 gap-3">
+            <Stat label="EQUITY" value={`$${Math.round(wallet.equity).toLocaleString()}`} tone="text-fg" />
+            <Stat
+              label="P&L (CANLI)"
+              value={`${wallet.realizedPnl + wallet.unrealizedPnl >= 0 ? "+" : "−"}$${Math.abs(Math.round(wallet.realizedPnl + wallet.unrealizedPnl)).toLocaleString()}`}
+              tone={wallet.realizedPnl + wallet.unrealizedPnl >= 0 ? "text-green" : "text-danger"}
+            />
+            <Stat
+              label="RETURN"
+              value={`${wallet.returnPct >= 0 ? "+" : ""}${(wallet.returnPct * 100).toFixed(2)}%`}
+              tone={wallet.returnPct >= 0 ? "text-green" : "text-danger"}
+            />
+          </div>
+        )}
+
         {/* metrics — real backtest stats from committed signals' real prices */}
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="LIVE" value={metrics.status === "BACKTEST" ? "—" : `${metrics.liveDays}d`} />
@@ -203,6 +225,14 @@ export default async function StrategyPage({
           <div className="flex items-center justify-between border-b border-border px-4 py-2 text-[10px] tracking-widest text-fg-mute">
             <span>FORWARD EQUITY CURVE</span>
             <span>NORMALIZED · {signals.length} SIGNALS</span>
+          </div>
+          {signals.length < 4 && (
+            <div className="border-b border-border bg-surface/20 px-4 py-2 text-[10px] text-fg-mute">
+              Sezon 1 yeni başladı — eğri, SHARPE ve WIN RATE kapanan işlemlerle dolacak.
+              Canlı para durumu yukarıdaki EQUITY / P&L kartlarında.
+            </div>
+          )}
+          <div className="hidden">
           </div>
           <div className="px-2 py-3">
             <EquityCurve data={metrics.forwardCurve} />
