@@ -10,12 +10,23 @@ export interface Bar {
   v: number;
 }
 
-export type Source = "binance" | "yahoo";
+export type Source = "binance" | "yahoo" | "coingecko";
+
+// Symbol → CoinGecko id map for DEX-only meme coins (written by universe.ts)
+import memeMapPath from "node:path";
+async function loadMemeMap(): Promise<Record<string, string>> {
+  try {
+    const p = memeMapPath.join(process.cwd(), "lib", "data", "universe-cache", "meme-map.json");
+    return JSON.parse(await fs.readFile(p, "utf8")) as Record<string, string>;
+  } catch { return {}; }
+}
 export type Interval = "1d" | "1h" | "15m" | "5m";
 
 const CACHE_DIR = path.join(process.cwd(), "lib", "data", "market-cache");
 
 // Shorter TTL for intraday bars so they stay fresh during continuous runs
+const CG_TTL = 60 * 60 * 1000; // coingecko hourly data — refresh hourly
+
 const CACHE_TTL: Record<Interval, number> = {
   "1d":  6 * 60 * 60 * 1000,  // 6h
   "1h":  15 * 60 * 1000,       // 15min
@@ -104,6 +115,35 @@ async function fetchYahoo(symbol: string, interval: Interval, limit: number): Pr
   return bars.slice(-limit);
 }
 
+/**
+ * CoinGecko price history → pseudo-bars (hourly closes; H/L spans consecutive
+ * closes so true-range/ATR stay meaningful). Used for DEX-only meme coins
+ * that have no exchange candles.
+ */
+async function fetchCoinGecko(cgId: string, limit: number): Promise<Bar[]> {
+  const url = `https://api.coingecko.com/api/v3/coins/${cgId}/market_chart?vs_currency=usd&days=7`;
+  const res = await fetch(url, { headers: { accept: "application/json" } });
+  if (!res.ok) throw new Error(`coingecko ${cgId} ${res.status}`);
+  const json = (await res.json()) as { prices: [number, number][]; total_volumes: [number, number][] };
+  const prices = json.prices ?? [];
+  if (prices.length < 3) throw new Error(`coingecko ${cgId} empty`);
+  const vols = new Map((json.total_volumes ?? []).map(([t, v]) => [t, v]));
+  const bars: Bar[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    const [t, c] = prices[i];
+    const prev = prices[i - 1][1];
+    bars.push({
+      t,
+      o: prev,
+      h: Math.max(prev, c),
+      l: Math.min(prev, c),
+      c,
+      v: vols.get(t) ?? 0,
+    });
+  }
+  return bars.slice(-limit);
+}
+
 /** Fetch bars for a symbol. Interval defaults to daily. Results are cached. */
 export async function getDailyBars(symbol: string, source: Source, limit = 260): Promise<Bar[]> {
   return getBars(symbol, source, "1d", limit);
@@ -122,9 +162,29 @@ export async function getBars(
   if (cached && cached.length >= limit) return cached.slice(-limit);
 
   const fetchLimit = Math.max(limit, 200); // always fetch a useful window
-  const bars = source === "binance"
-    ? await fetchBinance(symbol, interval, fetchLimit)
-    : await fetchYahoo(symbol, interval, fetchLimit);
+  let bars: Bar[];
+  if (source === "coingecko") {
+    bars = await fetchCoinGecko(symbol, fetchLimit);
+  } else if (source === "binance") {
+    try {
+      bars = await fetchBinance(symbol, interval, fetchLimit);
+    } catch (e) {
+      // DEX-only meme coin? Fall back to CoinGecko price history.
+      const memeMap = await loadMemeMap();
+      const cgId = memeMap[symbol];
+      if (!cgId) throw e;
+      const cgCached = await readCache("coingecko", cgId, "1h");
+      if (cgCached && cgCached.length >= Math.min(limit, 150) &&
+          Date.now() - 0 < CG_TTL /* ttl handled by readCache */) {
+        return cgCached.slice(-limit);
+      }
+      bars = await fetchCoinGecko(cgId, fetchLimit);
+      if (bars.length) await writeCache("coingecko", cgId, "1h", bars);
+      return bars.slice(-limit);
+    }
+  } else {
+    bars = await fetchYahoo(symbol, interval, fetchLimit);
+  }
 
   // Never overwrite a longer cache with a shorter one
   if (bars.length && bars.length >= (cached?.length ?? 0)) {

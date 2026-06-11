@@ -20,7 +20,7 @@ const CACHE_DIR = path.join(process.cwd(), "lib", "data", "universe-cache");
 const TTL_MS = 24 * 60 * 60 * 1000; // refresh daily
 
 // chunk sizes per run (per 5-minute cycle)
-export const CHUNK = { crypto: 60, meme: 50, equity: 50 } as const;
+export const CHUNK = { crypto: 60, meme: 25, equity: 50 } as const;
 
 async function readCache(name: string): Promise<string[] | null> {
   try {
@@ -58,31 +58,64 @@ export async function getCryptoUniverse(): Promise<string[]> {
   }
 }
 
-/** CoinGecko meme-token category, mcap > $300k, tradeable on Binance. */
+/**
+ * Meme universe: $500k–$10M market cap micro-caps from CoinGecko's meme
+ * categories (main + Solana + Base ecosystems), 1000+ names targeted.
+ * Most are DEX-only — price history comes from CoinGecko (see data.ts
+ * binance→coingecko fallback via meme-map.json written here).
+ */
+const MEME_CATEGORIES = ["meme-token", "solana-meme-coins", "base-meme-coins"];
+const MEME_MCAP_MIN = 500_000;
+const MEME_MCAP_MAX = 10_000_000;
+
 export async function getMemeUniverse(): Promise<string[]> {
-  const cached = await readCache("meme");
+  const cached = await readCache("meme-v2");
   if (cached) return cached;
   try {
-    const crypto = new Set(await getCryptoUniverse());
-    const out: string[] = [];
-    for (let page = 1; page <= 3; page++) {
-      const res = await fetch(
-        `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=meme-token&order=market_cap_desc&per_page=250&page=${page}`,
-        { headers: { accept: "application/json" } },
-      );
-      if (!res.ok) break;
-      const coins = (await res.json()) as { symbol: string; market_cap: number | null }[];
-      if (!coins.length) break;
-      for (const c of coins) {
-        if ((c.market_cap ?? 0) <= 300_000) continue;
-        const sym = `${c.symbol.toUpperCase()}-USD`;
-        if (crypto.has(sym) && !out.includes(sym)) out.push(sym);
+    const byId = new Map<string, { symbol: string; mcap: number }>();
+    for (const cat of MEME_CATEGORIES) {
+      for (let page = 1; page <= 5; page++) {
+        const res = await fetch(
+          `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=${cat}&order=market_cap_desc&per_page=250&page=${page}`,
+          { headers: { accept: "application/json" } },
+        );
+        if (!res.ok) break; // rate limit / end — keep what we have
+        const coins = (await res.json()) as { id: string; symbol: string; market_cap: number | null }[];
+        if (!coins.length) break;
+        let inBand = 0;
+        for (const c of coins) {
+          const mcap = c.market_cap ?? 0;
+          if (mcap < MEME_MCAP_MIN || mcap > MEME_MCAP_MAX) continue;
+          inBand++;
+          if (!byId.has(c.id)) byId.set(c.id, { symbol: c.symbol.toUpperCase(), mcap });
+        }
+        // mcap-descending: once a full page is below the band, stop paging
+        if (inBand === 0 && (coins[coins.length - 1]?.market_cap ?? 0) < MEME_MCAP_MIN) break;
+        await new Promise((r) => setTimeout(r, 6000)); // free API: ~10 req/min — daily refresh, so slow is fine
       }
     }
-    if (out.length > 5) await writeCache("meme", out);
-    return out;
+
+    // Symbol collisions (many "PEPE"s): highest mcap keeps the clean ticker
+    const taken = new Set<string>();
+    const symbols: string[] = [];
+    const map: Record<string, string> = {};
+    const ranked = [...byId.entries()].sort((a, b) => b[1].mcap - a[1].mcap);
+    for (const [id, { symbol }] of ranked) {
+      let sym = `${symbol}-USD`;
+      if (taken.has(sym)) sym = `${symbol}.${id.slice(0, 4).toUpperCase()}-USD`;
+      if (taken.has(sym)) continue;
+      taken.add(sym);
+      symbols.push(sym);
+      map[sym] = id;
+    }
+
+    if (symbols.length > 50) {
+      await writeCache("meme-v2", symbols);
+      await fs.writeFile(path.join(CACHE_DIR, "meme-map.json"), JSON.stringify(map), "utf8");
+    }
+    return symbols;
   } catch {
-    return (await readCache("meme")) ?? [];
+    return (await readCache("meme-v2")) ?? [];
   }
 }
 
@@ -128,8 +161,11 @@ export async function getScanList(bot: Bot, openSymbols: string[]): Promise<{ sc
   const chunks = Math.max(1, Math.ceil(universe.length / chunkSize));
   // Rotate by wall-clock 5-minute slot, offset per bot so bots cover
   // different parts of the universe in the same cycle.
-  const botOffset = parseInt(bot.id.slice(4), 10) || 0;
-  const slot = (Math.floor(Date.now() / 300_000) + botOffset) % chunks;
+  // Meme bots share one chunk per hour (CoinGecko rate budget); other
+  // markets stagger per bot for wider coverage.
+  const botOffset = kind === "meme" ? 0 : parseInt(bot.id.slice(4), 10) || 0;
+  const slotMs = kind === "meme" ? 3_600_000 : 300_000;
+  const slot = (Math.floor(Date.now() / slotMs) + botOffset) % chunks;
   const chunk = universe.slice(slot * chunkSize, (slot + 1) * chunkSize);
 
   const scan = [...new Set([bot.symbols[0], ...openSymbols, ...chunk])];
