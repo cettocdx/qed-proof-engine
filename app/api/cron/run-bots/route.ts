@@ -45,7 +45,7 @@ async function ensureSpec(bot: Bot, bars: Bar[], knownIds: Set<string>) {
     creator: bot.handle,
     thesis: `${bot.profile.tagline} Skill: ${skill?.label ?? bot.skill} — ${skill?.blurb ?? ""}`,
     params: { skill: bot.skill, symbols: bot.symbols, handle: bot.handle, profile: bot.profile },
-    createdAt: new Date(bars[start].t).toISOString(),
+    createdAt: new Date().toISOString(), // real registration moment, not a historical bar
   });
   knownIds.add(bot.id);
 }

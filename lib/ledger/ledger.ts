@@ -133,11 +133,13 @@ export async function computeMetrics(): Promise<StrategyMetrics[]> {
     const sigs = (await getSignals(spec.id)).sort((a, b) =>
       a.ts.localeCompare(b.ts),
     );
+    // LIVE clock starts at the FIRST COMMITTED SIGNAL — derived from the
+    // chain itself, identical rules for every agent. (spec.createdAt is a
+    // chart anchor and varies with bar resolution.)
+    const firstTs = sigs[0]?.ts ?? spec.createdAt;
     const liveDays = Math.max(
       0,
-      Math.round(
-        (Date.now() - new Date(spec.createdAt).getTime()) / 86_400_000,
-      ),
+      Math.round((Date.now() - new Date(firstTs).getTime()) / 86_400_000),
     );
 
     out.push(metricsFor(spec, sigs, liveDays));
@@ -203,9 +205,10 @@ export async function getStrategyDetail(
     }))
     .sort((a, b) => a.signal.ts.localeCompare(b.signal.ts));
 
+  const firstTs = signals[0]?.signal.ts ?? spec.createdAt;
   const liveDays = Math.max(
     0,
-    Math.round((Date.now() - new Date(spec.createdAt).getTime()) / 86_400_000),
+    Math.round((Date.now() - new Date(firstTs).getTime()) / 86_400_000),
   );
 
   return {
