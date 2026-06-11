@@ -48,9 +48,20 @@ export default function AdminPage() {
   }, []);
 
   async function runNow() {
+    // Password lives ONLY in server env (CRON_SECRET) — never in the repo.
+    const pass = window.prompt("Admin password:");
+    if (!pass) return;
     setRunning(true);
     try {
-      const r = await fetch("/api/cron/run-bots", { method: "POST" });
+      const r = await fetch("/api/cron/run-bots", {
+        method: "POST",
+        headers: { authorization: `Bearer ${pass.trim()}` },
+      });
+      if (r.status === 401) {
+        window.alert("Wrong password.");
+        setRunning(false);
+        return;
+      }
       const d = await r.json() as CronResult;
       setCronResult(d);
       // refresh summary

@@ -22,7 +22,9 @@ export async function register() {
 
   const hit = async (path: string, label: string) => {
     try {
-      const res = await fetch(`${base}${path}`, { method: "POST", signal: AbortSignal.timeout(290_000) });
+      const headers: Record<string, string> = {};
+      if (process.env.CRON_SECRET) headers.authorization = `Bearer ${process.env.CRON_SECRET}`;
+      const res = await fetch(`${base}${path}`, { method: "POST", headers, signal: AbortSignal.timeout(290_000) });
       const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       console.log(`[scheduler] ${label}: ${res.status}`, JSON.stringify(body).slice(0, 200));
     } catch (e) {
