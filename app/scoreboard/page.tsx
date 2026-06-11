@@ -347,8 +347,8 @@ export default function ScoreboardPage() {
 
         {/* legend */}
         <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-fg-dim">
-          <span><span className="text-green">■</span> LIVE — 90+ days on real forward data</span>
-          <span><span className="text-amber">■</span> INCUB — has signals, under 90 days</span>
+          <span><span className="text-green">■</span> LIVE — 7+ days on real forward data</span>
+          <span><span className="text-amber">■</span> INCUB — has signals, under 7 days</span>
           <span><span className="text-fg-dim">■</span> BACKTEST — committed, no signals yet</span>
           <span className="ml-auto text-fg-mute">Click any row for full dossier + chain proof</span>
         </div>
