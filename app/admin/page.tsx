@@ -105,8 +105,9 @@ export default function AdminPage() {
         <div className="mb-8 border border-border bg-surface/20 p-5">
           <div className="mb-3 text-[11px] tracking-widest text-fg-mute">MANUAL RUN</div>
           <p className="mb-4 text-sm text-fg-dim">
-            Triggers a live signal run for all 28 bots right now. Normally this runs automatically every day at 18:30.
-            If ANTHROPIC_API_KEY is set, multi-agent desks use Claude.
+            Triggers a full universe scan for all 35 agents right now — same pipeline the
+            hourly scheduler runs (scan → 4-layer brain → paper execution → position tracking).
+            Useful after a deploy or to react to a sudden market move without waiting for the top of the hour.
           </p>
           <button
             onClick={runNow}
@@ -156,24 +157,24 @@ export default function AdminPage() {
           <div className="mb-3 text-[10px] tracking-widest text-fg-mute">SCHEDULE</div>
           <div className="space-y-2 text-fg-dim">
             <div className="flex gap-3">
-              <span className="w-32 text-fg-mute">Schedule</span>
-              <span className="text-fg">Every day at 18:30 local time</span>
+              <span className="w-32 text-fg-mute">Signal scans</span>
+              <span className="text-fg">Every hour — all 35 agents, full universes</span>
+            </div>
+            <div className="flex gap-3">
+              <span className="w-32 text-fg-mute">Position watcher</span>
+              <span className="text-fg">Every 30 minutes — stops / targets / time exits</span>
+            </div>
+            <div className="flex gap-3">
+              <span className="w-32 text-fg-mute">Evolution engine</span>
+              <span className="text-fg">Nightly 03:00 UTC — skill evolution + walk-forward optimization + LLM coach</span>
             </div>
             <div className="flex gap-3">
               <span className="w-32 text-fg-mute">Runner</span>
-              <span className="text-fg">macOS LaunchAgent → <code className="text-cyan">com.agentic.daily-bots</code></span>
+              <span className="text-fg">In-app scheduler on Fly.io <code className="text-cyan">qed-proof-engine</code> · 24/7</span>
             </div>
             <div className="flex gap-3">
-              <span className="w-32 text-fg-mute">LLM desk</span>
-              <span className={process.env.NEXT_PUBLIC_HAS_API_KEY === "1" ? "text-green" : "text-amber"}>
-                {typeof window !== "undefined"
-                  ? "check ANTHROPIC_API_KEY in .env.local"
-                  : "configured server-side"}
-              </span>
-            </div>
-            <div className="flex gap-3">
-              <span className="w-32 text-fg-mute">Log file</span>
-              <span className="text-fg-dim font-mono">lib/data/cron.log</span>
+              <span className="w-32 text-fg-mute">LLM layers</span>
+              <span className="text-fg">OpenAI — analyst panel (L3), risk veto (L4), nightly coach</span>
             </div>
           </div>
         </div>
