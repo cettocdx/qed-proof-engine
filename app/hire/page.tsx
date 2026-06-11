@@ -62,18 +62,18 @@ export default function HirePage() {
             Hire an Agent
           </h1>
           <p className="mt-2 text-xs text-fg-dim">
-            Fiyat = taban + kazandığı paranın %5&apos;i + ROI puanı başına $12 — kazandıkça pahalanır, kaybedince ucuzlar.
-            En pahalı (en çok kazanan) üstte. ∎
+            Price = base + 5% of profits earned + $12 per ROI point — winners get expensive, losers get cheap.
+            Most expensive (top earner) first. ∎
           </p>
           {updatedAt && (
             <p className="mt-1 flex items-center gap-1.5 text-[10px] tracking-widest text-green">
               <span className="blink inline-block h-1.5 w-1.5 rounded-full bg-green" />
-              CANLI FİYATLAMA · 60 sn&apos;de bir güncellenir · {updatedAt.toLocaleTimeString("tr-TR")}
+              LIVE PRICING · re-marks every 60s · {updatedAt.toLocaleTimeString("en-US")}
             </p>
           )}
         </div>
 
-        {loading && <div className="py-20 text-center text-sm text-fg-dim">Yükleniyor…</div>}
+        {loading && <div className="py-20 text-center text-sm text-fg-dim">Loading…</div>}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {cards.map((c, rank) => {
@@ -103,7 +103,7 @@ export default function HirePage() {
                     <div className="text-sm text-fg tabular">{fmt(c.equity)}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] text-fg-mute">KAZANÇ</div>
+                    <div className="text-[9px] text-fg-mute">PROFIT</div>
                     <div className={`text-sm tabular ${c.pnlUsd >= 0 ? "text-green" : "text-danger"}`}>
                       {c.pnlUsd >= 0 ? "+" : "−"}{fmt(Math.abs(c.pnlUsd)).slice(0)}
                     </div>
@@ -117,8 +117,8 @@ export default function HirePage() {
                 {/* interactive equity chart */}
                 <div className="mt-3">
                   <div className="mb-1 flex items-center justify-between text-[9px] text-fg-mute">
-                    <span>EQUITY EĞRİSİ — mouse ile gez</span>
-                    <span>{c.signalCount} sinyal</span>
+                    <span>EQUITY CURVE — hover to inspect</span>
+                    <span>{c.signalCount} signals</span>
                   </div>
                   <EquityChart curve={c.curve} />
                 </div>
@@ -128,18 +128,18 @@ export default function HirePage() {
 
                 {/* live system specs */}
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-fg-dim">
-                  <span>TARAMA: <span className="text-cyan">{c.universe.size > 0 ? `${c.universe.size} ${c.universe.label}` : c.universe.label}</span> / saat</span>
-                  <span>BOYUT: <span className="text-fg">equity × {(c.temperament.riskPct * 100).toFixed(0)}%</span></span>
+                  <span>SCANS: <span className="text-cyan">{c.universe.size > 0 ? `${c.universe.size} ${c.universe.label}` : c.universe.label}</span> / hour</span>
+                  <span>SIZING: <span className="text-fg">equity × {(c.temperament.riskPct * 100).toFixed(0)}%</span></span>
                   <span>WIN RATE: <span className="text-fg">{c.winRate != null ? `${(c.winRate * 100).toFixed(0)}%` : "—"}</span></span>
                 </div>
                 {c.evolved && (
                   <p className="mt-2 text-[10px] text-amber/80">
-                    ⟳ Stratejisini kendi kendine güncelledi ({new Date(c.evolved.at).toLocaleDateString("tr-TR")})
+                    ⟳ Self-evolved its strategy ({new Date(c.evolved.at).toLocaleDateString("en-US")})
                   </p>
                 )}
                 {c.coach && (
                   <p className="mt-1 text-[10px] text-cyan/70">
-                    ◆ KOÇ: {c.coach.lesson.slice(0, 100)}{c.coach.lesson.length > 100 ? "…" : ""} ({c.coach.modifier}×)
+                    ◆ COACH: {c.coach.lesson.slice(0, 100)}{c.coach.lesson.length > 100 ? "…" : ""} ({c.coach.modifier}×)
                   </p>
                 )}
 
@@ -147,9 +147,9 @@ export default function HirePage() {
                 <div className="mt-auto pt-4">
                   <div className="flex items-center justify-between border-t border-border-2 pt-3">
                     <div>
-                      <div className="text-xl text-fg tabular">{fmt(c.price)}<span className="text-[10px] text-fg-dim">/ay</span></div>
+                      <div className="text-xl text-fg tabular">{fmt(c.price)}<span className="text-[10px] text-fg-dim">/mo</span></div>
                       <div className="text-[9px] text-fg-mute">
-                        {c.closedPositions} kapalı · {c.openPositions} açık işlem
+                        {c.closedPositions} closed · {c.openPositions} open trades
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -157,13 +157,13 @@ export default function HirePage() {
                         href={`/strategy/${c.id}`}
                         className="border border-border-2 px-3 py-2 text-[10px] tracking-wider text-fg-dim hover:border-fg-dim hover:text-fg"
                       >
-                        KAYITLAR
+                        RECORDS
                       </Link>
                       <button
-                        title="Ödeme entegrasyonu yakında"
+                        title="Payments coming soon"
                         className="cursor-not-allowed border border-cyan/40 bg-cyan/5 px-4 py-2 text-[11px] tracking-wider text-cyan/60"
                       >
-                        KİRALA · YAKINDA
+                        HIRE · SOON
                       </button>
                     </div>
                   </div>

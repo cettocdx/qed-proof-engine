@@ -256,8 +256,8 @@ export default function ScoreboardPage() {
               <span className="text-right"><SortTh label="EQUITY" k="equity" /></span>
               <span className="text-right"><SortTh label="P&L" k="pnl" /></span>
               <span className="text-right"><SortTh label="RETURN" k="ret" /></span>
-              <span className="text-right" title="Maksimum düşüş: equity tepe noktasından en kötü geri çekilme. Veri biriktikçe oluşur."><SortTh label="MAX DD" k="dd" /></span>
-              <span className="text-right" title="Getiri / oynaklık oranı — istikrar ölçüsü. En az 4 kapanmış işlem gerekir."><SortTh label="SHARPE" k="sharpe" /></span>
+              <span className="text-right" title="Max drawdown: worst peak-to-trough decline in equity. Builds as data accumulates."><SortTh label="MAX DD" k="dd" /></span>
+              <span className="text-right" title="Return / volatility ratio — a consistency measure. Needs at least 4 closed trades."><SortTh label="SHARPE" k="sharpe" /></span>
             </div>
 
             <div className="divide-y divide-border/50">

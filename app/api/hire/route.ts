@@ -34,10 +34,10 @@ export async function GET() {
     const skillId = effectiveSkillId(bot, overrides);
     const t = temperamentFor(bot);
     const universe = MEME_IDS.has(bot.id)
-      ? { label: "meme coin (mcap > $300k)", size: memeUni.length }
+      ? { label: "meme coins (mcap > $300k)", size: memeUni.length }
       : bot.market === "CRYPTO"
-        ? { label: "Binance çifti", size: cryptoUni.length }
-        : { label: "NASDAQ hissesi", size: eqUni.length };
+        ? { label: "Binance pairs", size: cryptoUni.length }
+        : { label: "NASDAQ stocks", size: eqUni.length };
 
     return {
       id: bot.id,

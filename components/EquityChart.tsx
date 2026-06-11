@@ -23,7 +23,7 @@ export default function EquityChart({
   if (curve.length < 2) {
     return (
       <div className="flex h-16 items-center justify-center border border-border/60 bg-surface/20 text-[10px] text-fg-mute">
-        henüz equity verisi yok — ilk sinyallerle oluşacak
+        no equity data yet — builds with the first signals
       </div>
     );
   }
@@ -83,7 +83,7 @@ export default function EquityChart({
           <span className={hv >= 100_000 ? "text-green" : "text-danger"}>
             {" "}({hv >= 100_000 ? "+" : ""}{(((hv - 100_000) / 100_000) * 100).toFixed(1)}%)
           </span>
-          <span className="text-fg-mute"> · sinyal #{hover}</span>
+          <span className="text-fg-mute"> · signal #{hover}</span>
         </div>
       )}
     </div>

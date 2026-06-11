@@ -50,21 +50,21 @@ const fmtUsd = (n: number) =>
   `${n < 0 ? "−" : "+"}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 const fmtWhen = (ts: string) =>
-  new Date(ts).toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  new Date(ts).toLocaleString("en-US", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
 function ago(ts: string): string {
   const h = (Date.now() - new Date(ts).getTime()) / 3.6e6;
-  if (h < 1) return `${Math.max(1, Math.round(h * 60))} dk`;
-  if (h < 48) return `${Math.round(h)} sa`;
-  return `${Math.round(h / 24)} gün`;
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))}m`;
+  if (h < 48) return `${Math.round(h)}h`;
+  return `${Math.round(h / 24)}d`;
 }
 
 function held(a: string, b?: string): string {
   if (!b) return "—";
   const h = (new Date(b).getTime() - new Date(a).getTime()) / 3.6e6;
-  if (h < 1) return `${Math.max(1, Math.round(h * 60))} dk`;
-  if (h < 48) return `${Math.round(h)} sa`;
-  return `${Math.round(h / 24)} gün`;
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))}m`;
+  if (h < 48) return `${Math.round(h)}h`;
+  return `${Math.round(h / 24)}d`;
 }
 
 // ── small pieces ───────────────────────────────────────────────────────────
@@ -88,11 +88,11 @@ function Pnl({ usd, pct, big = false }: { usd: number | null | undefined; pct: n
 }
 
 const OUTCOME: Record<string, { text: string; cls: string }> = {
-  target: { text: "HEDEF TUTTU", cls: "border-green/40 bg-green/10 text-green" },
-  stop:   { text: "STOP OLDU",   cls: "border-danger/40 bg-danger/10 text-danger" },
-  signal: { text: "SİNYAL DÖNDÜ", cls: "border-cyan/40 bg-cyan/10 text-cyan" },
-  time:   { text: "SÜRE DOLDU",  cls: "border-amber/40 bg-amber/10 text-amber" },
-  manual: { text: "MANUEL",      cls: "border-border-2 text-fg-dim" },
+  target: { text: "TARGET HIT", cls: "border-green/40 bg-green/10 text-green" },
+  stop:   { text: "STOPPED OUT", cls: "border-danger/40 bg-danger/10 text-danger" },
+  signal: { text: "SIGNAL FLIP", cls: "border-cyan/40 bg-cyan/10 text-cyan" },
+  time:   { text: "TIMED OUT",  cls: "border-amber/40 bg-amber/10 text-amber" },
+  manual: { text: "MANUAL",     cls: "border-border-2 text-fg-dim" },
 };
 
 // ── page ───────────────────────────────────────────────────────────────────
@@ -122,38 +122,38 @@ export default function PositionsPage() {
         {/* ── summary: only the 3 numbers that matter ── */}
         <div className="mb-10 grid grid-cols-3 gap-4">
           <div>
-            <div className="text-[11px] tracking-widest text-fg-mute">AÇIK POZİSYON</div>
+            <div className="text-[11px] tracking-widest text-fg-mute">OPEN POSITIONS</div>
             <div className="mt-1 text-3xl text-fg tabular">{data?.stats.openCount ?? "—"}</div>
           </div>
           <div>
-            <div className="text-[11px] tracking-widest text-fg-mute">AÇIK K/Z (CANLI)</div>
+            <div className="text-[11px] tracking-widest text-fg-mute">OPEN P&L (LIVE)</div>
             <div className={`mt-1 text-3xl tabular ${liveTotal >= 0 ? "text-green" : "text-danger"}`}>
               {data ? fmtUsd(liveTotal) : "—"}
             </div>
           </div>
           <div>
-            <div className="text-[11px] tracking-widest text-fg-mute">GERÇEKLEŞEN K/Z</div>
+            <div className="text-[11px] tracking-widest text-fg-mute">REALIZED P&L</div>
             <div className={`mt-1 text-3xl tabular ${(data?.stats.totalPnlUsd ?? 0) >= 0 ? "text-green" : "text-danger"}`}>
               {data ? fmtUsd(data.stats.totalPnlUsd) : "—"}
             </div>
           </div>
         </div>
 
-        {loading && <div className="py-20 text-center text-sm text-fg-dim">Yükleniyor…</div>}
+        {loading && <div className="py-20 text-center text-sm text-fg-dim">Loading…</div>}
 
         {/* ── open positions ── */}
         {data && (
           <section className="mb-12">
             <h2 className="mb-1 font-serif text-2xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
-              Açık Pozisyonlar
+              Open Positions
             </h2>
             <p className="mb-4 text-[11px] text-fg-dim">
-              30 saniyede bir yenilenir · stop = giriş − 2×ATR · hedef = giriş + 4×ATR
+              Refreshes every 30s · stop = entry − 2×ATR · target = entry + 4×ATR
             </p>
 
             {open.length === 0 ? (
               <div className="border border-border bg-surface/20 px-6 py-10 text-center text-sm text-fg-dim">
-                Şu an açık pozisyon yok — botlar saatte bir tarıyor, yenisi açıldığında burada görünür.
+                No open positions right now — agents scan hourly; new trades appear here automatically.
               </div>
             ) : (
               <div className="divide-y divide-border/60 border border-border">
@@ -171,19 +171,19 @@ export default function PositionsPage() {
                     </div>
                     {/* line 2: prices + timing */}
                     <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-[11px] tabular sm:grid-cols-5">
-                      <span className="text-fg-mute">giriş <span className="text-fg-dim">{fmtPrice(p.entryPrice)}</span></span>
-                      <span className="text-fg-mute">şimdi <span className="text-fg">{p.currentPrice != null ? fmtPrice(p.currentPrice) : "—"}</span></span>
+                      <span className="text-fg-mute">entry <span className="text-fg-dim">{fmtPrice(p.entryPrice)}</span></span>
+                      <span className="text-fg-mute">now <span className="text-fg">{p.currentPrice != null ? fmtPrice(p.currentPrice) : "—"}</span></span>
                       <span className="text-danger/70">stop {fmtPrice(p.stopPrice)}</span>
-                      <span className="text-green/70">hedef {fmtPrice(p.targetPrice)}</span>
-                      <span className="text-fg-mute">{fmtWhen(p.entryTs)} · {ago(p.entryTs)} önce</span>
+                      <span className="text-green/70">target {fmtPrice(p.targetPrice)}</span>
+                      <span className="text-fg-mute">{fmtWhen(p.entryTs)}  · {ago(p.entryTs)} ago</span>
                     </div>
                     {/* line 3: size + risk taken */}
                     <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-[11px] tabular">
-                      <span className="text-fg-dim">pozisyon <span className="text-fg">${p.size.toLocaleString()}</span>
-                        {p.equityPct != null && <span className="text-fg-mute"> · equity&apos;nin %{Math.round(p.equityPct * 100)}&apos;i · 1x spot</span>}
+                      <span className="text-fg-dim">position <span className="text-fg">${p.size.toLocaleString()}</span>
+                        {p.equityPct != null && <span className="text-fg-mute"> · {Math.round(p.equityPct * 100)}% of equity · 1x spot</span>}
                       </span>
                       {p.riskUsd != null && (
-                        <span className="text-danger/80">alınan risk ${p.riskUsd.toLocaleString()} <span className="text-fg-mute">(stop yerse)</span></span>
+                        <span className="text-danger/80">risk taken ${p.riskUsd.toLocaleString()} <span className="text-fg-mute">(if stopped)</span></span>
                       )}
                     </div>
                   </Link>
@@ -197,10 +197,10 @@ export default function PositionsPage() {
         {data && data.closed.length > 0 && (
           <section>
             <h2 className="mb-1 font-serif text-2xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
-              Geçmiş İşlemler
+              Trade History
             </h2>
             <p className="mb-4 text-[11px] text-fg-dim">
-              Son {data.closed.length} işlem · kazanma oranı{" "}
+              Last {data.closed.length} trades · win rate{" "}
               {data.stats.winRate != null ? `${Math.round(data.stats.winRate * 100)}%` : "—"}
             </p>
 
@@ -226,9 +226,9 @@ export default function PositionsPage() {
                       <span className="mx-2 text-border-2">|</span>
                       {fmtWhen(p.entryTs)} → {p.exitTs ? fmtWhen(p.exitTs) : "—"}
                       <span className="mx-2 text-border-2">|</span>
-                      {held(p.entryTs, p.exitTs)} tutuldu
+                      held {held(p.entryTs, p.exitTs)}
                       <span className="mx-2 text-border-2">|</span>
-                      ${p.size.toLocaleString()} pozisyon{p.riskUsd != null ? ` · $${p.riskUsd.toLocaleString()} risk` : ""}
+                      ${p.size.toLocaleString()} position{p.riskUsd != null ? ` · $${p.riskUsd.toLocaleString()} risk` : ""}
                       <span className="sm:hidden"> · {o.text}</span>
                     </div>
                   </Link>
@@ -237,10 +237,10 @@ export default function PositionsPage() {
             </div>
 
             <p className="mt-4 text-[10px] leading-relaxed text-fg-mute">
-              <span className="text-green">HEDEF TUTTU</span> = kâr al seviyesine ulaştı ·{" "}
-              <span className="text-danger">STOP OLDU</span> = zarar kes çalıştı ·{" "}
-              <span className="text-cyan">SİNYAL DÖNDÜ</span> = bot ters yönde sinyal verdi ·{" "}
-              <span className="text-amber">SÜRE DOLDU</span> = 30 gün maks. tutma süresi
+              <span className="text-green">TARGET HIT</span> = take-profit reached ·{" "}
+              <span className="text-danger">STOPPED OUT</span> = stop-loss triggered ·{" "}
+              <span className="text-cyan">SIGNAL FLIP</span> = opposite signal arrived ·{" "}
+              <span className="text-amber">TIMED OUT</span> = 30-day max hold
             </p>
           </section>
         )}

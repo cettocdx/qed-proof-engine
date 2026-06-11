@@ -226,18 +226,70 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ─── THE EVOLUTION ENGINE ──────────────────────────────────── */}
+      <section className="relative border-t border-border-2 px-6 py-24">
+        <div className="mx-auto max-w-6xl">
+          <motion.div {...fade(0)} className="mb-14 max-w-2xl">
+            <p className="mb-3 text-[11px] tracking-[0.35em] text-cyan/80">03 — THE EVOLUTION ENGINE</p>
+            <h2 className="font-serif text-4xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
+              The agents you hire tomorrow are better than today&apos;s.
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed text-fg-dim">
+              Every night at 03:00 UTC the entire roster is rebuilt by four self-improvement
+              systems. No human touches a parameter — the agents earn their upgrades.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {[
+              {
+                t: "REGIME DETECTION", tag: "every signal",
+                d: "Before any vote is cast, the market is classified as trend, range or chaos using the Kaufman efficiency ratio and volatility percentile. Momentum skills are weighted 1.5× in trends, mean-reversion 1.5× in ranges — everything is discounted to 0.6× in chaos. The right weapon for the weather, automatically.",
+              },
+              {
+                t: "WALK-FORWARD OPTIMIZER", tag: "nightly",
+                d: "Each agent's specialty skill is grid-searched on its own market: parameters train on the first 70% of recent data and are selected purely on the held-out 30%. Curve-fitting is structurally impossible to reward — only parameters that survive unseen data go live.",
+              },
+              {
+                t: "SKILL EVOLUTION", tag: "nightly",
+                d: "All eleven skills are backtested on every agent's market and ranked. An agent stuck in the bottom 40% whose best rival scores 1.5× better gets its specialty replaced — natural selection over strategies. The roster never changes; the strategies inside it do.",
+              },
+              {
+                t: "LLM COACH", tag: "nightly",
+                d: "A language model reviews each agent's closed trades, names the strongest recurring pattern — good or bad — and writes a confidence multiplier from 0.7× to 1.2× into the brain. Losing patterns get throttled before they compound; clean execution earns more size.",
+              },
+            ].map((c, i) => (
+              <motion.div key={c.t} {...fade(i * 0.05)} className="border border-border-2 bg-surface/40 p-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[11px] tracking-widest text-fg">{c.t}</span>
+                  <span className="border border-cyan/30 bg-cyan/5 px-2 py-0.5 text-[9px] tracking-widest text-cyan/80">{c.tag}</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-fg-dim">{c.d}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div {...fade(0.1)} className="mt-6 border border-border-2 bg-surface/20 p-4 text-center">
+            <span className="text-[11px] tracking-widest text-fg-dim">
+              03:00 UTC <span className="text-cyan">→</span> BACKTEST ALL SKILLS <span className="text-cyan">→</span> EVOLVE THE WEAK <span className="text-cyan">→</span> RE-OPTIMIZE PARAMS <span className="text-cyan">→</span> COACH REVIEWS TRADES <span className="text-cyan">→</span> WAKE UP SHARPER
+            </span>
+          </motion.div>
+        </div>
+      </section>
+
       {/* ─── LIVE PROOF / SCOREBOARD TEASER ────────────────────────── */}
       <section className="relative border-t border-border-2">
         <div className="mx-auto max-w-6xl px-6 pt-24">
           <motion.div {...fade(0)} className="mb-4 max-w-2xl">
-            <p className="mb-3 text-[11px] tracking-[0.35em] text-cyan/80">03 — LIVE PROOF</p>
+            <p className="mb-3 text-[11px] tracking-[0.35em] text-cyan/80">04 — LIVE PROOF</p>
             <h2 className="font-serif text-4xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
               The scoreboard is the proof.
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-fg-dim">
-              Signals every 15 minutes, around the clock, across crypto, US equities
-              and memecoins. Positions tracked with live stops and targets. Skills
-              re-optimized nightly. All of it verifiable, none of it editable.
+              Every hour, 35 agents sweep 400+ Binance pairs, the full NASDAQ list and
+              every meme coin above $300k market cap. Positions carry live stops and
+              targets, sized from each agent&apos;s real equity. Nightly, the evolution
+              engine rebuilds the roster. All of it verifiable, none of it editable.
             </p>
           </motion.div>
         </div>

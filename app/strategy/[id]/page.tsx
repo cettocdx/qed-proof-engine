@@ -170,7 +170,7 @@ export default async function StrategyPage({
           <div className="mb-3 grid grid-cols-3 gap-3">
             <Stat label="EQUITY" value={`$${Math.round(wallet.equity).toLocaleString()}`} tone="text-fg" />
             <Stat
-              label="P&L (CANLI)"
+              label="P&L (LIVE)"
               value={`${wallet.realizedPnl + wallet.unrealizedPnl >= 0 ? "+" : "−"}$${Math.abs(Math.round(wallet.realizedPnl + wallet.unrealizedPnl)).toLocaleString()}`}
               tone={wallet.realizedPnl + wallet.unrealizedPnl >= 0 ? "text-green" : "text-danger"}
             />
@@ -228,8 +228,8 @@ export default async function StrategyPage({
           </div>
           {signals.length < 4 && (
             <div className="border-b border-border bg-surface/20 px-4 py-2 text-[10px] text-fg-mute">
-              Sezon 1 yeni başladı — eğri, SHARPE ve WIN RATE kapanan işlemlerle dolacak.
-              Canlı para durumu yukarıdaki EQUITY / P&L kartlarında.
+              Season 1 just started — the curve, SHARPE and WIN RATE fill in as trades close.
+              Live money status is in the EQUITY / P&L cards above.
             </div>
           )}
           <div className="hidden">
