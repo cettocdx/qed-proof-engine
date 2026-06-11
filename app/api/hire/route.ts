@@ -34,7 +34,7 @@ export async function GET() {
     const skillId = effectiveSkillId(bot, overrides);
     const t = temperamentFor(bot);
     const universe = MEME_IDS.has(bot.id)
-      ? { label: "meme coins (mcap > $300k)", size: memeUni.length }
+      ? { label: "meme micro-caps ($500k–$10M)", size: memeUni.length }
       : bot.market === "CRYPTO"
         ? { label: "Binance pairs", size: cryptoUni.length }
         : { label: "NASDAQ stocks", size: eqUni.length };
