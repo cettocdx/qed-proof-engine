@@ -56,7 +56,17 @@ type BrainContext = {
   coachNotes: CoachNotes;
 };
 
-async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx: BrainContext): Promise<BotResult> {
+// Max bots allowed in the same symbol simultaneously (meme tokens only)
+const MAX_CONCURRENT_PER_MEME = 2;
+const MEME_BOT_IDS = new Set(["AGT-029","AGT-030","AGT-031","AGT-032","AGT-033","AGT-034","AGT-035"]);
+
+async function runBotLive(
+  bot: Bot,
+  knownIds: Set<string>,
+  useLlm: boolean,
+  ctx: BrainContext,
+  openBySymbol: Map<string, number>,   // portfolio-wide open count per symbol
+): Promise<BotResult> {
   const skillId = effectiveSkillId(bot, ctx.overrides);
   const skill = SKILLS[skillId];
   if (!skill) return { id: bot.id, name: bot.name, signals: 0, note: "unknown skill" };
@@ -167,7 +177,85 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
   if (equity <= 0) {
     return { id: bot.id, name: bot.name, signals: 0, note: "wallet:busted (equity <= 0)" };
   }
-  const notional = Math.round(equity * temperament.riskPct);
+
+  // ── Portfolio drawdown circuit breaker ───────────────────────────────────
+  // Drawdown is measured from the bot's LIFETIME PEAK equity (not the fixed
+  // $100k stake — a bot that peaked at $150k and fell to $110k is down 26%).
+  // On breach: flatten all open positions immediately, then halt new entries.
+  const { getPeakEquity } = await import("@/lib/portfolio/snapshots");
+  const peak = Math.max(await getPeakEquity(bot.id).catch(() => 100_000), 100_000);
+  const drawdownPct = (equity - peak) / peak; // negative = below peak
+  if (drawdownPct < -0.25) {
+    const { closeAllForBot } = await import("@/lib/positions/tracker");
+    const flattened = await closeAllForBot(bot.id, "manual").catch(() => []);
+    // Audit trail: every forced exit must appear in the hash-chained ledger,
+    // exactly like watcher auto-exits — otherwise the equity math and the
+    // "tamper-proof record" claim silently diverge.
+    for (const pos of flattened) {
+      const exitAction = pos.side === "long" ? "SELL" : "COVER";
+      await appendSignal({
+        strategyId: pos.strategyId,
+        ts: pos.exitTs ?? new Date().toISOString(),
+        action: exitAction,
+        symbol: pos.symbol,
+        meta: {
+          price: pos.exitPrice,
+          confidence: 1.0,
+          rationale: `forced exit: portfolio circuit breaker (dd ${(drawdownPct * 100).toFixed(1)}% from peak)`,
+          note: `circuit-breaker:flatten pnl=${pos.pnlPct}%`,
+        },
+      }).catch((e) => console.error(`[run-bots] breaker exit signal failed for ${pos.symbol}:`, (e as Error).message));
+    }
+    return {
+      id: bot.id, name: bot.name, signals: flattened.length,
+      note: `circuit:breaker dd ${(drawdownPct * 100).toFixed(1)}% from peak $${Math.round(peak / 1000)}k — flattened ${flattened.length} position(s), entries halted`,
+    };
+  }
+
+  // ── Realized-vol normalizer ──────────────────────────────────────────────
+  // Scale position size inversely to recent volatility: quiet market → full
+  // size; volatile market → reduced size. Uses 14-bar ATR% vs 100-bar median.
+  let volScalar = 1.0;
+  try {
+    const recentBars = bars.slice(-100);
+    if (recentBars.length >= 14) {
+      const atrs: number[] = [];
+      for (let i = 1; i < recentBars.length; i++) {
+        const b = recentBars[i];
+        const prev = recentBars[i - 1];
+        const tr = Math.max(b.h - b.l, Math.abs(b.h - prev.c), Math.abs(b.l - prev.c));
+        atrs.push(tr / prev.c); // ATR as % of price
+      }
+      const atr14 = atrs.slice(-14).reduce((a, b) => a + b, 0) / 14;
+      const sortedAtrs = [...atrs].sort((a, b) => a - b);
+      const medianAtr = sortedAtrs[Math.floor(sortedAtrs.length / 2)];
+      const volRatio = medianAtr > 0 ? atr14 / medianAtr : 1;
+      // Cap: never trade more than 1× normal, never less than 0.3×
+      volScalar = Math.min(1.0, Math.max(0.3, 1 / volRatio));
+    }
+  } catch { /* bars unavailable — keep full size */ }
+
+  const notional = Math.round(equity * temperament.riskPct * volScalar);
+
+  // ── Meme correlation bucketing ────────────────────────────────────────────
+  // Prevent the portfolio from piling into the same illiquid meme token.
+  // Per-bot circuit breaker alone is not enough: 8 bots × $10k = $80k in
+  // one micro-cap. Check the portfolio-wide open count for this symbol.
+  if (MEME_BOT_IDS.has(bot.id)) {
+    const action = decision.action;
+    const isEntry = action === "BUY" || action === "SHORT";
+    if (isEntry) {
+      const currentCount = openBySymbol.get(pick.symbol) ?? 0;
+      if (currentCount >= MAX_CONCURRENT_PER_MEME) {
+        return {
+          id: bot.id, name: bot.name, signals: 0,
+          note: `meme:correlation-cap symbol:${pick.symbol} already ${currentCount}/${MAX_CONCURRENT_PER_MEME} bots open`,
+        };
+      }
+      // Reserve the slot — subsequent bots in the same run see it
+      openBySymbol.set(pick.symbol, currentCount + 1);
+    }
+  }
 
   const signalTs = new Date().toISOString();
   const signal = {
@@ -179,7 +267,7 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
       price: +last.c.toPrecision(8), // keep precision for sub-cent memecoins
       confidence: +decision.confidence.toFixed(2),
       rationale: decision.rationale,
-      note: `brain:${useLlm ? "full" : "fast"} interval:${INTRADAY_INTERVAL} temperament:${temperament.kind} notional:${notional}`,
+      note: `brain:${useLlm ? "full" : "fast"} interval:${INTRADAY_INTERVAL} temperament:${temperament.kind} notional:${notional} volscalar:${volScalar.toFixed(2)}`,
     },
   };
 
@@ -216,11 +304,9 @@ async function runBotLive(bot: Bot, knownIds: Set<string>, useLlm: boolean, ctx:
 }
 
 export async function POST(req: Request) {
-  if (SECRET) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${SECRET}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  // Fail closed: no CRON_SECRET configured → endpoint locked.
+  if (!SECRET || req.headers.get("authorization") !== `Bearer ${SECRET}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const useLlm = !!process.env.OPENAI_API_KEY;
@@ -234,13 +320,33 @@ export async function POST(req: Request) {
     coachNotes: await loadCoachNotes(),
   };
 
+  // Portfolio-wide open position count per symbol — shared across all bot runs
+  // this cycle so meme correlation bucketing can see the full picture.
+  const { getAllPositions } = await import("@/lib/positions/tracker");
+  const allOpen = await getAllPositions().catch(() => []);
+  const openBySymbol = new Map<string, number>();
+  for (const p of allOpen.filter((p) => p.status === "open")) {
+    openBySymbol.set(p.symbol, (openBySymbol.get(p.symbol) ?? 0) + 1);
+  }
+
   for (const bot of ROSTER) {
-    const r = await runBotLive(bot, known, useLlm, ctx);
+    const r = await runBotLive(bot, known, useLlm, ctx, openBySymbol);
     results.push(r);
   }
 
   const chain = await verifyChain();
   const emitted = results.filter((r) => r.signals > 0).length;
+
+  // Hourly equity snapshot — real equity (incl. open-position MTM) per bot,
+  // so the hire/strategy charts always match the displayed numbers.
+  try {
+    const { getAllWallets } = await import("@/lib/portfolio/wallet");
+    const { appendEquitySnapshot } = await import("@/lib/portfolio/snapshots");
+    const wallets = await getAllWallets();
+    await appendEquitySnapshot(Object.fromEntries(wallets.map((w) => [w.strategyId, +w.equity.toFixed(2)])));
+  } catch (e) {
+    console.error("[run-bots] equity snapshot failed:", (e as Error).message);
+  }
 
   return NextResponse.json({ ok: true, ts: new Date().toISOString(), emitted, chain, results });
 }

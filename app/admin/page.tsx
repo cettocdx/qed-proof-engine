@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { signOut, useSession } from "next-auth/react";
 import SiteNav from "@/components/SiteNav";
 
 type CronResult = {
@@ -20,31 +21,44 @@ type ScoreboardSummary = {
   chainOk: boolean;
 };
 
+type Health = {
+  ts: string;
+  scheduler: { alive: boolean; instanceId: string | null; lastHeartbeatMs: number | null };
+  errors: { count: number; recent: { ts: string; label: string; message: string }[] };
+  waitlist: { count: number; recent: { agentId: string; ts: string }[] };
+};
+
 export default function AdminPage() {
+  const { data: session } = useSession();
   const [cronResult, setCronResult] = useState<CronResult | null>(null);
   const [summary, setSummary] = useState<ScoreboardSummary | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
   const [running, setRunning] = useState(false);
-  const [cronLog, setCronLog] = useState<string>("");
 
   useEffect(() => {
-    fetch("/api/scoreboard")
-      .then((r) => r.json())
-      .then((d) => {
-        const strategies = d.strategies as { status: string }[];
-        setSummary({
-          total: strategies.length,
-          live: strategies.filter((s) => s.status === "LIVE").length,
-          incub: strategies.filter((s) => s.status === "INCUB").length,
-          backtest: strategies.filter((s) => s.status === "BACKTEST").length,
-          chainOk: d.chain.ok,
-        });
-      })
-      .catch(() => {});
+    const loadAll = () => {
+      fetch("/api/scoreboard")
+        .then((r) => r.json())
+        .then((d) => {
+          const strategies = d.strategies as { status: string }[];
+          setSummary({
+            total: strategies.length,
+            live: strategies.filter((s) => s.status === "LIVE").length,
+            incub: strategies.filter((s) => s.status === "INCUB").length,
+            backtest: strategies.filter((s) => s.status === "BACKTEST").length,
+            chainOk: d.chain.ok,
+          });
+        })
+        .catch(() => {});
 
-    fetch("/api/cron/log")
-      .then((r) => r.json())
-      .then((d) => setCronLog(d.log ?? ""))
-      .catch(() => {});
+      fetch("/api/health")
+        .then((r) => r.json() as Promise<Health>)
+        .then(setHealth)
+        .catch(() => {});
+    };
+    loadAll();
+    const id = setInterval(loadAll, 30_000);
+    return () => clearInterval(id);
   }, []);
 
   async function runNow() {
@@ -87,11 +101,24 @@ export default function AdminPage() {
 
         <div className="mb-8"><SiteNav active="/admin" /></div>
 
-        <div className="mb-6 border-b border-border pb-4">
-          <h1 className="font-serif text-3xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
-            Proof Engine · Admin
-          </h1>
-          <p className="mt-1 text-sm text-fg-dim">Bot runner · Chain health · Cron status</p>
+        <div className="mb-6 flex items-end justify-between border-b border-border pb-4">
+          <div>
+            <h1 className="font-serif text-3xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
+              Proof Engine · Admin
+            </h1>
+            <p className="mt-1 text-sm text-fg-dim">Bot runner · Chain health · Cron status</p>
+          </div>
+          {session?.user && (
+            <div className="flex items-center gap-3 text-[11px]">
+              <span className="text-fg-mute">{session.user.email}</span>
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="border border-border px-3 py-1.5 tracking-widest text-fg-dim hover:border-danger/50 hover:text-danger"
+              >
+                SIGN OUT
+              </button>
+            </div>
+          )}
         </div>
 
         {/* summary cards */}
@@ -156,6 +183,56 @@ export default function AdminPage() {
                       {r.signals > 0 ? `+${r.signals}` : "—"}
                     </span>
                     <span className="w-48 text-right text-[11px] text-fg-mute">{r.note}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* health panel */}
+        {health && (
+          <div className="mb-8 border border-border bg-surface/20">
+            <div className="flex items-center justify-between border-b border-border px-4 py-2 text-[10px] tracking-widest text-fg-mute">
+              <span>SYSTEM HEALTH</span>
+              <span className="text-fg-mute">{health.ts.slice(0, 19).replace("T", " ")} UTC</span>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-border">
+              {/* scheduler */}
+              <div className="px-4 py-3">
+                <div className="text-[10px] tracking-widest text-fg-mute mb-1">SCHEDULER</div>
+                <div className={`flex items-center gap-1.5 text-[12px] ${health.scheduler.alive ? "text-green" : "text-danger"}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${health.scheduler.alive ? "bg-green blink" : "bg-danger"}`} />
+                  {health.scheduler.alive ? "ALIVE" : "SILENT"}
+                </div>
+                {health.scheduler.lastHeartbeatMs !== null && (
+                  <div className="mt-1 text-[10px] text-fg-mute">
+                    last beat: {Math.round(health.scheduler.lastHeartbeatMs / 1000)}s ago
+                  </div>
+                )}
+                {health.scheduler.instanceId && (
+                  <div className="mt-0.5 truncate text-[10px] text-fg-mute">{health.scheduler.instanceId}</div>
+                )}
+              </div>
+              {/* errors */}
+              <div className="px-4 py-3">
+                <div className="text-[10px] tracking-widest text-fg-mute mb-1">ERRORS (DURABLE)</div>
+                <div className={`text-[12px] ${health.errors.count > 0 ? "text-danger" : "text-green"}`}>
+                  {health.errors.count === 0 ? "0 errors" : `${health.errors.count} logged`}
+                </div>
+                {health.errors.recent.map((e, i) => (
+                  <div key={i} className="mt-1 text-[10px] text-fg-mute truncate">
+                    {e.ts.slice(11, 19)} {e.label}: {e.message.slice(0, 40)}
+                  </div>
+                ))}
+              </div>
+              {/* waitlist */}
+              <div className="px-4 py-3">
+                <div className="text-[10px] tracking-widest text-fg-mute mb-1">WAITLIST</div>
+                <div className="text-[12px] text-cyan">{health.waitlist.count} signups</div>
+                {health.waitlist.recent.map((e, i) => (
+                  <div key={i} className="mt-1 text-[10px] text-fg-mute">
+                    {e.ts.slice(0, 10)} · {e.agentId}
                   </div>
                 ))}
               </div>

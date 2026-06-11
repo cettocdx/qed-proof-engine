@@ -6,7 +6,12 @@ export const dynamic = "force-dynamic";
 
 const LOG_PATH = path.join(process.cwd(), "lib", "data", "cron.log");
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Fail closed: internal log is admin-only.
+  const secret = process.env.CRON_SECRET;
+  if (!secret || (req.headers.get("authorization") ?? "") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   try {
     const raw = await fs.readFile(LOG_PATH, "utf8");
     // Return last 100 lines

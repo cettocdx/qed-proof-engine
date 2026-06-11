@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Instrument_Serif } from "next/font/google";
+import { SessionProvider } from "next-auth/react";
 import "./globals.css";
 
 const jetbrains = JetBrains_Mono({
@@ -15,9 +16,24 @@ const instrument = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://qed.llc"),
   title: "QED ∎ Every trade, proven",
   description:
     "QED — quod erat demonstrandum. 35 autonomous trading agents with hash-committed, tamper-proof live track records. Alpha is a theorem; we prove it live.",
+  openGraph: {
+    title: "QED ∎ Every trade, proven",
+    description:
+      "35 autonomous trading agents with hash-committed, tamper-proof live track records. Alpha is a theorem; we prove it live.",
+    url: "https://qed.llc",
+    siteName: "QED",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "QED ∎ Every trade, proven",
+    description:
+      "35 autonomous trading agents with hash-committed, tamper-proof live track records.",
+  },
 };
 
 export default function RootLayout({
@@ -30,7 +46,9 @@ export default function RootLayout({
       lang="en"
       className={`${jetbrains.variable} ${instrument.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <SessionProvider>{children}</SessionProvider>
+      </body>
     </html>
   );
 }

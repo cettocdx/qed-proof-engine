@@ -1,9 +1,141 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import SiteNav from "@/components/SiteNav";
 import EquityChart from "@/components/EquityChart";
+
+function PaymentBanner() {
+  const params = useSearchParams();
+  const status = params.get("payment");
+  const [dismissed, setDismissed] = useState(false);
+  if (!status || dismissed) return null;
+
+  if (status === "success") {
+    return (
+      <div className="mb-6 flex items-start justify-between border border-green/50 bg-green/10 px-4 py-3">
+        <div>
+          <div className="text-[12px] tracking-wider text-green">✓ PAYMENT RECEIVED</div>
+          <p className="mt-1 text-[11px] text-fg-dim">
+            Your 30-day agent access is being activated. A confirmation will be sent to your email
+            once the transaction settles on-chain (usually a few minutes).
+          </p>
+        </div>
+        <button onClick={() => setDismissed(true)} className="ml-4 text-[11px] text-fg-mute hover:text-fg">✕</button>
+      </div>
+    );
+  }
+  if (status === "cancelled") {
+    return (
+      <div className="mb-6 flex items-start justify-between border border-amber/50 bg-amber/10 px-4 py-3">
+        <div>
+          <div className="text-[12px] tracking-wider text-amber">PAYMENT CANCELLED</div>
+          <p className="mt-1 text-[11px] text-fg-dim">No charge was made. You can retry anytime.</p>
+        </div>
+        <button onClick={() => setDismissed(true)} className="ml-4 text-[11px] text-fg-mute hover:text-fg">✕</button>
+      </div>
+    );
+  }
+  return null;
+}
+
+const PAY_COINS = [
+  { id: "usdttrc20", label: "USDT · TRON" },
+  { id: "usdcsol", label: "USDC · SOL" },
+  { id: "sol", label: "SOLANA" },
+  { id: "eth", label: "ETHEREUM" },
+] as const;
+
+function PayButton({ agentId, agentName, priceUsd }: { agentId: string; agentName: string; priceUsd: number }) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [coin, setCoin] = useState<string>("usdttrc20");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/payments/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agentId, agentName, priceUsd, email, payCurrency: coin }),
+      });
+      const data = await res.json() as { invoice_url?: string; pay_address?: string; pay_amount?: number; pay_currency?: string; error?: string };
+      if (!res.ok || data.error) { setError("Payment error. Try again."); setLoading(false); return; }
+      // Redirect to NOWPayments invoice page
+      const url = data.invoice_url ?? `https://nowpayments.io/payment/?iid=${data.pay_address}`;
+      window.location.href = url;
+    } catch {
+      setError("Network error. Try again.");
+      setLoading(false);
+    }
+  };
+
+  if (open) {
+    return (
+      <form onSubmit={submit} className="flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap gap-1">
+          {PAY_COINS.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setCoin(c.id)}
+              className={`border px-2 py-1 text-[9px] tracking-wider transition-colors ${
+                coin === c.id
+                  ? "border-cyan bg-cyan/15 text-cyan"
+                  : "border-border-2 text-fg-mute hover:border-fg-dim hover:text-fg"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          <input
+            ref={inputRef}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="your@email.com"
+            required
+            autoFocus
+            className="w-36 border border-cyan/40 bg-bg px-2 py-1.5 text-[10px] text-fg outline-none placeholder:text-fg-mute focus:border-cyan"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="border border-cyan/60 bg-cyan/10 px-3 py-1.5 text-[10px] tracking-wider text-cyan hover:bg-cyan/20 disabled:opacity-50"
+          >
+            {loading ? "…" : "PAY"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="border border-border-2 px-2 py-1.5 text-[10px] text-fg-mute hover:text-fg"
+          >
+            ✕
+          </button>
+        </div>
+        {error && <div className="text-[10px] text-danger">{error}</div>}
+        <div className="text-[9px] text-fg-mute">Crypto payment via NOWPayments</div>
+      </form>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setOpen(true)}
+      className="border border-cyan bg-cyan/10 px-4 py-2 text-[11px] tracking-wider text-cyan hover:bg-cyan/20"
+    >
+      HIRE NOW
+    </button>
+  );
+}
 
 type Card = {
   id: string;
@@ -57,6 +189,7 @@ export default function HirePage() {
     <main className="min-h-screen bg-bg px-6 py-10 font-mono">
       <div className="mx-auto max-w-7xl">
         <div className="mb-8"><SiteNav active="/hire" /></div>
+        <Suspense><PaymentBanner /></Suspense>
         <div className="mb-8">
           <h1 className="font-serif text-4xl text-fg" style={{ fontFamily: "var(--font-serif)" }}>
             Hire an Agent
@@ -117,7 +250,7 @@ export default function HirePage() {
                 {/* interactive equity chart */}
                 <div className="mt-3">
                   <div className="mb-1 flex items-center justify-between text-[9px] text-fg-mute">
-                    <span>EQUITY CURVE — hover to inspect</span>
+                    <span>LIVE EQUITY · 5-MIN — hover to inspect</span>
                     <span>{c.signalCount} signals</span>
                   </div>
                   <EquityChart curve={c.curve} />
@@ -145,6 +278,9 @@ export default function HirePage() {
 
                 {/* price + actions — pinned to card bottom */}
                 <div className="mt-auto pt-4">
+                  <p className="mb-2 text-[9px] text-fg-mute/60">
+                    Paper trading only · Simulated performance · Not financial advice
+                  </p>
                   <div className="flex items-center justify-between border-t border-border-2 pt-3">
                     <div>
                       <div className="text-xl text-fg tabular">{fmt(c.price)}<span className="text-[10px] text-fg-dim">/mo</span></div>
@@ -159,12 +295,7 @@ export default function HirePage() {
                       >
                         RECORDS
                       </Link>
-                      <button
-                        title="Payments coming soon"
-                        className="cursor-not-allowed border border-cyan/40 bg-cyan/5 px-4 py-2 text-[11px] tracking-wider text-cyan/60"
-                      >
-                        HIRE · SOON
-                      </button>
+                      <PayButton agentId={c.id} agentName={c.name} priceUsd={c.price} />
                     </div>
                   </div>
                 </div>

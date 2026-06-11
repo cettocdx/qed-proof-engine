@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
+import UnlockBox from "@/components/UnlockBox";
+import { hasAccess } from "@/lib/subscribers/access";
 import Avatar from "@/components/Avatar";
+import EquityChart from "@/components/EquityChart";
 import { getStrategyDetail } from "@/lib/ledger/ledger";
 import { getWallet } from "@/lib/portfolio/wallet";
+import { getEquityCurve } from "@/lib/portfolio/snapshots";
 import { botById } from "@/lib/bots/roster";
-import type { StrategyDetail } from "@/lib/ledger/schema";
+import type { StrategyDetail, SignalRecord } from "@/lib/ledger/schema";
 
 type SpecProfile = {
   tagline: string;
@@ -31,43 +36,86 @@ const ACTION_COLOR: Record<string, string> = {
   FLAT: "text-fg-dim",
 };
 
-function EquityCurve({ data }: { data: number[] }) {
-  const w = 720;
-  const h = 200;
-  const pad = 8;
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const x = (i: number) => pad + (i / (data.length - 1)) * (w - pad * 2);
-  const y = (v: number) =>
-    h - pad - ((v - min) / (max - min || 1)) * (h - pad * 2);
-  const line = data.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const area = `${pad},${h - pad} ${line} ${(w - pad).toFixed(1)},${h - pad}`;
-  const up = data[data.length - 1] >= data[0];
-  const stroke = up ? "#22c55e" : "#ef4444";
+interface ClosedTrade {
+  symbol: string;
+  direction: "LONG" | "SHORT";
+  entryTs: string;
+  exitTs: string | null;
+  entryPrice: number;
+  exitPrice: number | null;
+  notional: number;
+  pnlUsd: number | null;
+  pnlPct: number | null;
+  status: "WIN" | "LOSS" | "OPEN" | "FLAT";
+}
 
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="eqfill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0.25, 0.5, 0.75].map((g) => (
-        <line
-          key={g}
-          x1={pad}
-          x2={w - pad}
-          y1={h * g}
-          y2={h * g}
-          stroke="#1e2a3f"
-          strokeWidth="1"
-        />
-      ))}
-      <polygon points={area} fill="url(#eqfill)" />
-      <polyline points={line} fill="none" stroke={stroke} strokeWidth="1.5" />
-    </svg>
-  );
+function buildTrades(signals: SignalRecord[]): ClosedTrade[] {
+  // Work chronologically oldest→newest
+  const sorted = [...signals].sort((a, b) => a.signal.ts.localeCompare(b.signal.ts));
+  // open positions keyed by symbol
+  const open = new Map<string, { ts: string; price: number; notional: number; direction: "LONG" | "SHORT" }>();
+  const trades: ClosedTrade[] = [];
+
+  for (const rec of sorted) {
+    const { action, symbol, ts, meta } = rec.signal;
+    const price = meta?.price ?? 0;
+    const noteStr = String(meta?.note ?? "");
+    const notional = Number(noteStr.match(/notional:(\d+)/)?.[1] ?? 0);
+
+    if (action === "BUY") {
+      open.set(symbol, { ts, price, notional, direction: "LONG" });
+    } else if (action === "SHORT") {
+      open.set(symbol, { ts, price, notional, direction: "SHORT" });
+    } else if (action === "SELL" || action === "COVER") {
+      const entry = open.get(symbol);
+      if (entry) {
+        open.delete(symbol);
+        const pnlPct = entry.direction === "LONG"
+          ? (price - entry.price) / entry.price
+          : (entry.price - price) / entry.price;
+        const pnlUsd = Math.round(entry.notional * pnlPct);
+        trades.push({
+          symbol,
+          direction: entry.direction,
+          entryTs: entry.ts,
+          exitTs: ts,
+          entryPrice: entry.price,
+          exitPrice: price,
+          notional: entry.notional,
+          pnlUsd,
+          pnlPct: +(pnlPct * 100).toFixed(2),
+          status: pnlPct >= 0 ? "WIN" : "LOSS",
+        });
+      } else {
+        // SELL with no open entry — record as standalone exit
+        trades.push({
+          symbol, direction: "LONG",
+          entryTs: ts, exitTs: ts,
+          entryPrice: price, exitPrice: price,
+          notional, pnlUsd: null, pnlPct: null, status: "FLAT",
+        });
+      }
+    }
+  }
+
+  // remaining open positions
+  for (const [symbol, entry] of open.entries()) {
+    trades.push({
+      symbol,
+      direction: entry.direction,
+      entryTs: entry.ts,
+      exitTs: null,
+      entryPrice: entry.price,
+      exitPrice: null,
+      notional: entry.notional,
+      pnlUsd: null,
+      pnlPct: null,
+      status: "OPEN",
+    });
+  }
+
+  // newest first
+  return trades.sort((a, b) => (b.exitTs ?? b.entryTs).localeCompare(a.exitTs ?? a.entryTs));
 }
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -90,6 +138,11 @@ export default async function StrategyPage({
 
   const bot = botById(id);
   const wallet = bot ? await getWallet(bot).catch(() => null) : null;
+  const hourlyCurve = await getEquityCurve(id).catch(() => [] as number[]);
+
+  // Subscriber gate: full trade history unlocks with a valid access key
+  const accessKey = (await cookies()).get("qed_access")?.value ?? "";
+  const subscribed = accessKey ? await hasAccess(accessKey, id).catch(() => false) : false;
 
   const { metrics, commit, signals, chain } = detail;
   const { spec } = metrics;
@@ -109,7 +162,7 @@ export default async function StrategyPage({
         {/* top bar */}
         <div className="mb-10 flex items-center justify-between text-[11px] tracking-widest">
           <Link
-            href="/"
+            href="/scoreboard"
             className="text-fg-dim transition-colors hover:text-cyan"
           >
             ← SCOREBOARD
@@ -220,24 +273,104 @@ export default async function StrategyPage({
           <Stat label="ARCHETYPE" value={spec.archetype.toUpperCase()} />
         </div>
 
-        {/* equity curve */}
+        {/* equity curve — interactive */}
         <div className="mb-8 border border-border bg-surface/30">
           <div className="flex items-center justify-between border-b border-border px-4 py-2 text-[10px] tracking-widest text-fg-mute">
             <span>FORWARD EQUITY CURVE</span>
-            <span>NORMALIZED · {signals.length} SIGNALS</span>
+            <span>{hourlyCurve.length >= 2 ? `5-MIN LIVE · ${hourlyCurve.length} SNAPSHOTS` : `NORMALIZED · ${signals.length} SIGNALS`}</span>
           </div>
-          {signals.length < 4 && (
-            <div className="border-b border-border bg-surface/20 px-4 py-2 text-[10px] text-fg-mute">
-              Season 1 just started — the curve, SHARPE and WIN RATE fill in as trades close.
-              Live money status is in the EQUITY / P&L cards above.
-            </div>
-          )}
-          <div className="hidden">
+          <div className="border-b border-border/50 px-4 py-2 text-[10px] text-fg-mute leading-relaxed">
+            {hourlyCurve.length >= 2
+              ? "Each point = one 5-minute snapshot of real account equity, including open positions marked to market — the curve moves with the bot's live trades."
+              : "Each point = one closed signal. Y-axis = simulated account equity starting from $100,000."}{" "}
+            The dashed line marks the $100k starting balance. Hover over any point to see the exact
+            dollar value and return % at that moment.
+            {signals.length < 4 && hourlyCurve.length < 2 && (
+              <span className="ml-2 text-amber/70">Season 1 just started — curve fills in as trades close.</span>
+            )}
           </div>
-          <div className="px-2 py-3">
-            <EquityCurve data={metrics.forwardCurve} />
+          <div className="px-2 py-4">
+            <EquityChart
+              curve={hourlyCurve.length >= 2 ? hourlyCurve : metrics.forwardCurve.map((v) => v * 100_000)}
+              height={200}
+            />
           </div>
         </div>
+
+        {/* closed trades */}
+        {(() => {
+          const allTrades = buildTrades(signals);
+          if (allTrades.length === 0) return null;
+          const trades = subscribed ? allTrades : allTrades.slice(0, 3);
+          const locked = !subscribed && allTrades.length > trades.length;
+          return (
+            <div className="mb-8 border border-border bg-surface/30">
+              <div className="flex items-center justify-between border-b border-border px-4 py-2 text-[10px] tracking-widest text-fg-mute">
+                <span>TRADE HISTORY{subscribed && <span className="ml-2 text-green">· SUBSCRIBER</span>}</span>
+                <span>{allTrades.filter((t) => t.status !== "OPEN").length} CLOSED · {allTrades.filter((t) => t.status === "OPEN").length} OPEN</span>
+              </div>
+              <div className="overflow-x-auto">
+                <div className="grid min-w-[860px] grid-cols-[80px_70px_90px_120px_100px_100px_80px_80px_64px] gap-2 border-b border-border/60 px-4 py-2 text-[10px] tracking-widest text-fg-mute">
+                  <span>STATUS</span>
+                  <span>DIR</span>
+                  <span>SYMBOL</span>
+                  <span>OPENED</span>
+                  <span className="text-right">ENTRY $</span>
+                  <span className="text-right">EXIT $</span>
+                  <span className="text-right">SIZE</span>
+                  <span className="text-right">P&amp;L</span>
+                  <span className="text-right">%</span>
+                </div>
+                {trades.map((t, i) => {
+                  const statusColor =
+                    t.status === "WIN" ? "text-green border-green/40"
+                    : t.status === "LOSS" ? "text-danger border-danger/40"
+                    : t.status === "OPEN" ? "text-cyan border-cyan/40"
+                    : "text-fg-mute border-border-2";
+                  const pnlColor = (t.pnlUsd ?? 0) >= 0 ? "text-green" : "text-danger";
+                  return (
+                    <div
+                      key={i}
+                      className="grid min-w-[860px] grid-cols-[80px_70px_90px_120px_100px_100px_80px_80px_64px] items-center gap-2 border-b border-border/40 px-4 py-2 text-[12px]"
+                    >
+                      <span className={`inline-flex w-fit items-center rounded-sm border px-1.5 py-0.5 text-[10px] tracking-widest ${statusColor}`}>
+                        {t.status}
+                      </span>
+                      <span className={t.direction === "LONG" ? "text-green" : "text-danger"}>
+                        {t.direction}
+                      </span>
+                      <span className="text-fg">{t.symbol}</span>
+                      <span className="text-fg-dim tabular">
+                        {t.entryTs.slice(0, 10)}{" "}
+                        <span className="text-fg-mute">{t.entryTs.slice(11, 16)}</span>
+                      </span>
+                      <span className="text-right text-fg tabular">
+                        {fmtSignalPrice(t.entryPrice)}
+                      </span>
+                      <span className="text-right text-fg tabular">
+                        {t.exitPrice != null ? fmtSignalPrice(t.exitPrice) : <span className="text-fg-mute">—</span>}
+                      </span>
+                      <span className="text-right text-fg-dim tabular">
+                        {t.notional > 0 ? `$${t.notional.toLocaleString()}` : "—"}
+                      </span>
+                      <span className={`text-right tabular ${t.pnlUsd != null ? pnlColor : "text-fg-mute"}`}>
+                        {t.pnlUsd != null
+                          ? `${t.pnlUsd >= 0 ? "+" : ""}$${Math.abs(t.pnlUsd).toLocaleString()}`
+                          : "—"}
+                      </span>
+                      <span className={`text-right tabular ${t.pnlPct != null ? pnlColor : "text-fg-mute"}`}>
+                        {t.pnlPct != null
+                          ? `${t.pnlPct >= 0 ? "+" : ""}${t.pnlPct}%`
+                          : "—"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {locked && <UnlockBox agentId={id} />}
+            </div>
+          );
+        })()}
 
         {/* commitment panel */}
         <div className="mb-8 border border-cyan/25 bg-surface/30">
@@ -252,16 +385,18 @@ export default async function StrategyPage({
           </div>
         </div>
 
-        {/* immutable signal log */}
-        <div className="border border-border bg-surface/30">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2 text-[10px] tracking-widest text-fg-mute">
+        {/* immutable signal log — collapsed, verification only */}
+        <details className="group border border-border bg-surface/30">
+          <summary className="flex cursor-pointer items-center justify-between border-b border-border px-4 py-2 text-[10px] tracking-widest text-fg-mute marker:hidden list-none">
             <span>IMMUTABLE SIGNAL LOG</span>
-            <span>APPEND-ONLY · FORWARD</span>
-          </div>
+            <span className="flex items-center gap-2">
+              <span>APPEND-ONLY · FORWARD · {signals.length} ENTRIES</span>
+              <span className="text-fg-mute group-open:rotate-180 transition-transform">▾</span>
+            </span>
+          </summary>
           {signals.length === 0 ? (
             <div className="px-4 py-6 text-[12px] text-fg-dim">
-              No forward signals yet. This strategy is committed (BACKTEST) and
-              must emit live signals to earn a track record.
+              No forward signals yet.
             </div>
           ) : (
             <div className="divide-y divide-border/60 overflow-x-auto">
@@ -308,11 +443,11 @@ export default async function StrategyPage({
               })}
             </div>
           )}
-        </div>
+        </details>
 
-        <p className="mt-6 text-[11px] leading-relaxed text-fg-dim">
+        <p className="mt-4 text-[10px] leading-relaxed text-fg-mute">
           Verify independently: re-hash each entry from genesis with{" "}
-          <span className="text-fg">npm run ledger:verify</span>. Any edit to the
+          <span className="text-fg-dim">npm run ledger:verify</span>. Any edit to the
           spec or a past signal changes its hash and breaks the chain.
         </p>
       </div>

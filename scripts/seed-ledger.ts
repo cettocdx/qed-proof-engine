@@ -7,6 +7,11 @@
  *
  * Re-runnable: it resets the ledger file first so the demo is deterministic.
  */
+if (process.env.NODE_ENV === "production") {
+  console.error("ERROR: seed-ledger.ts must not run in production — it truncates the ledger.");
+  process.exit(1);
+}
+
 import { promises as fs } from "node:fs";
 import {
   registerStrategy,

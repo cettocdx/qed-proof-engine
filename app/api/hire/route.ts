@@ -7,13 +7,14 @@ import { loadSkillOverrides, effectiveSkillId } from "@/lib/brain/evolution";
 import { loadCoachNotes } from "@/lib/brain/coach";
 import { getCryptoUniverse, getMemeUniverse, getEquityUniverse } from "@/lib/market/universe";
 import { SKILLS } from "@/lib/strategy/skills";
+import { getAllEquityCurves } from "@/lib/portfolio/snapshots";
 
 export const dynamic = "force-dynamic";
 
 const MEME_IDS = new Set(["AGT-029", "AGT-030", "AGT-031", "AGT-032", "AGT-033", "AGT-034", "AGT-035"]);
 
 export async function GET() {
-  const [wallets, metrics, overrides, coachNotes, cryptoUni, memeUni, eqUni] = await Promise.all([
+  const [wallets, metrics, overrides, coachNotes, cryptoUni, memeUni, eqUni, hourlyCurves] = await Promise.all([
     getAllWallets(),
     computeMetrics(),
     loadSkillOverrides(),
@@ -21,6 +22,7 @@ export async function GET() {
     getCryptoUniverse().catch(() => []),
     getMemeUniverse().catch(() => []),
     getEquityUniverse().catch(() => []),
+    getAllEquityCurves().catch(() => new Map<string, number[]>()),
   ]);
 
   const walletById = new Map(wallets.map((w) => [w.strategyId, w]));
@@ -60,8 +62,9 @@ export async function GET() {
       openPositions: w?.openPositions ?? 0,
       closedPositions: w?.closedPositions ?? 0,
       price: hirePriceUsd(bot, { pnlUsd, returnPct }),
-      // equity curve for the interactive chart: normalized forward curve × 100k
-      curve: (m?.forwardCurve ?? [1, 1]).map((v) => +(v * 100_000).toFixed(0)),
+      // hourly real-equity snapshots (incl. open-position MTM) — matches the
+      // EQUITY/PROFIT numbers; falls back to signal-based curve until 2+ snapshots exist
+      curve: hourlyCurves.get(bot.id) ?? (m?.forwardCurve ?? [1, 1]).map((v) => +(v * 100_000).toFixed(0)),
       signalCount: m?.signalCount ?? 0,
     };
   }).sort((a, b) => b.price - a.price || b.equity - a.equity);

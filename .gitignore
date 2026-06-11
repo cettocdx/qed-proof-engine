@@ -45,3 +45,15 @@ next-env.d.ts
 lib/data/market-cache/
 lib/data/*.log
 
+# customer PII & secrets-bearing runtime data — NEVER commit
+lib/data/subscribers.jsonl
+lib/data/payments.jsonl
+lib/data/pending-orders.jsonl
+lib/data/reminders-sent.jsonl
+lib/data/equity-snapshots.jsonl
+lib/data/equity-peaks.json
+lib/data/scheduler-lock.json
+lib/data/scheduler-errors.jsonl
+lib/data/waitlist.jsonl
+lib/data/backups/
+

@@ -21,7 +21,13 @@ export const maxDuration = 300;
  *  2. OPTIMIZE  — walk-forward grid-search the (possibly new) skill's params.
  *  3. COACH     — LLM reviews closed trades, writes a lesson + confidence modifier.
  */
-export async function POST() {
+export async function POST(req: Request) {
+  const secret = process.env.CRON_SECRET;
+  // Fail closed: no CRON_SECRET configured → endpoint locked.
+  if (!secret || (req.headers.get("authorization") ?? "") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const overrides = await loadSkillOverrides();
   const optimized = await loadOptimizedParams();
   const coachNotes = await loadCoachNotes();
@@ -92,9 +98,9 @@ export async function POST() {
   });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   if (process.env.NODE_ENV !== "development") {
     return NextResponse.json({ error: "use POST in production" }, { status: 405 });
   }
-  return POST();
+  return POST(req);
 }

@@ -212,6 +212,40 @@ export async function checkPositions(): Promise<Position[]> {
 }
 
 /**
+ * Force-close every open position for one bot at current market price.
+ * Used by the circuit breaker: a bot in deep drawdown must flatten, not
+ * just stop opening new trades.
+ */
+export async function closeAllForBot(strategyId: string, reason: CloseReason = "manual"): Promise<Position[]> {
+  const all = await readAll();
+  const open = all.filter((p) => p.strategyId === strategyId && p.status === "open");
+  if (open.length === 0) return [];
+
+  const closed: Position[] = [];
+  for (const pos of open) {
+    let current = pos.entryPrice;
+    let currentTs = new Date().toISOString();
+    try {
+      const bars = await getDailyBars(pos.symbol, pos.source, 2);
+      current = bars[bars.length - 1].c;
+      currentTs = new Date(bars[bars.length - 1].t).toISOString();
+    } catch { /* no price — close at entry (flat) */ }
+
+    pos.status = "closed";
+    pos.exitPrice = current;
+    pos.exitTs = currentTs;
+    pos.closeReason = reason;
+    const dir = pos.side === "long" ? 1 : -1;
+    pos.pnlPct = +(dir * (current - pos.entryPrice) / pos.entryPrice * 100).toFixed(2);
+    pos.pnlUsd = +(pos.size * (pos.pnlPct / 100)).toFixed(2);
+    closed.push(pos);
+  }
+
+  await writeAll(all);
+  return closed;
+}
+
+/**
  * Portfolio-level P&L summary across all positions.
  */
 export async function getPortfolioStats() {

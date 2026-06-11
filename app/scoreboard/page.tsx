@@ -43,6 +43,7 @@ type ApiResponse = {
     sharpe: number | null;
     maxDrawdownPct: number;
     forwardCurve: number[];
+    spark?: number[];
     signalCount: number;
     status: Status;
     winRatePct: number | null;
@@ -126,7 +127,7 @@ export default function ScoreboardPage() {
             dd: s.maxDrawdownPct,
             signals: s.signalCount,
             status: s.status,
-            spark: s.forwardCurve,
+            spark: s.spark ?? s.forwardCurve,
             equity: walletById.get(s.spec.id)?.equity ?? null,
             pnl: walletById.get(s.spec.id)
               ? +(walletById.get(s.spec.id)!.realizedPnl + walletById.get(s.spec.id)!.unrealizedPnl).toFixed(2)
@@ -243,21 +244,57 @@ export default function ScoreboardPage() {
         {loading ? (
           <div className="py-20 text-center text-fg-dim text-sm">Loading scoreboard…</div>
         ) : (
-          <div className="overflow-x-auto border border-border bg-surface/20">
+          <>
+          {/* mobile cards */}
+          <div className="space-y-2 md:hidden">
+            {sortedRows.map((r) => (
+              <Link
+                key={r.id}
+                href={`/strategy/${r.id}`}
+                className="block border border-border bg-surface/20 px-4 py-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={`shrink-0 rounded-sm border px-1.5 py-0.5 text-[9px] ${STATUS_STYLE[r.status]}`}>
+                      {r.status}
+                    </span>
+                    <span className="truncate text-[13px] text-fg">{r.name}</span>
+                  </div>
+                  {r.spark.length >= 3 && (
+                    <Spark data={r.spark} color={r.spark[r.spark.length - 1] >= r.spark[0] ? "#22c55e" : "#ef4444"} />
+                  )}
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[12px] tabular">
+                  <span className="text-fg">{r.equity === null ? "—" : `$${Math.round(r.equity).toLocaleString()}`}</span>
+                  <span className={r.pnl === null ? "text-fg-mute" : r.pnl >= 0 ? "text-green" : "text-danger"}>
+                    {r.pnl === null ? "—" : `${r.pnl >= 0 ? "+" : "−"}$${Math.abs(r.pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                  </span>
+                  <span className={r.ret === null ? "text-fg-mute" : r.ret >= 0 ? "text-green" : "text-danger"}>
+                    {r.ret === null ? "—" : `${r.ret >= 0 ? "+" : ""}${r.ret}%`}
+                  </span>
+                  <span className="text-[10px] text-fg-mute">{r.signals} sig</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* desktop table */}
+          <div className="hidden overflow-x-auto border border-border bg-surface/20 md:block">
            <div className="min-w-[1020px]">
             {/* header row */}
-            <div className="grid grid-cols-[64px_190px_56px_56px_50px_70px_100px_90px_80px_70px_70px] gap-3 border-b border-border px-4 py-2 text-[10px] tracking-widest text-fg-mute">
+            <div className="grid grid-cols-[64px_170px_56px_50px_50px_64px_96px_86px_76px_66px_66px_86px] gap-3 border-b border-border px-4 py-2 text-[10px] tracking-widest text-fg-mute">
               <span>ID</span>
               <span>STRATEGY</span>
               <span>MARKET</span>
               <span>TYPE</span>
               <span className="text-right"><SortTh label="LIVE" k="since" /></span>
-              <span className="text-right"><SortTh label="SIGNALS" k="signals" /></span>
+              <span className="text-right"><SortTh label="SIG" k="signals" /></span>
               <span className="text-right"><SortTh label="EQUITY" k="equity" /></span>
               <span className="text-right"><SortTh label="P&L" k="pnl" /></span>
               <span className="text-right"><SortTh label="RETURN" k="ret" /></span>
-              <span className="text-right" title="Max drawdown: worst peak-to-trough decline in equity. Builds as data accumulates."><SortTh label="MAX DD" k="dd" /></span>
-              <span className="text-right" title="Return / volatility ratio — a consistency measure. Needs at least 4 closed trades."><SortTh label="SHARPE" k="sharpe" /></span>
+              <span className="text-right" title="Max drawdown"><SortTh label="DD" k="dd" /></span>
+              <span className="text-right" title="Sharpe ratio"><SortTh label="SHP" k="sharpe" /></span>
+              <span className="text-right text-fg-mute">TREND</span>
             </div>
 
             <div className="divide-y divide-border/50">
@@ -273,7 +310,7 @@ export default function ScoreboardPage() {
                   >
                     <Link
                       href={`/strategy/${r.id}`}
-                      className="group grid grid-cols-[64px_190px_56px_56px_50px_70px_100px_90px_80px_70px_70px] items-center gap-3 px-4 py-3 text-[12px] transition-colors hover:bg-surface/60"
+                      className="group grid grid-cols-[64px_170px_56px_50px_50px_64px_96px_86px_76px_66px_66px_86px] items-center gap-3 px-4 py-3 text-[12px] transition-colors hover:bg-surface/60"
                     >
                       <span className="text-fg-dim tabular">{r.id}</span>
 
@@ -336,6 +373,21 @@ export default function ScoreboardPage() {
                           </span>
                         )}
                       </span>
+
+                      <span className="flex justify-end">
+                        {r.spark.length >= 3 ? (
+                          <Spark
+                            data={r.spark}
+                            color={
+                              r.spark[r.spark.length - 1] >= r.spark[0]
+                                ? "#22c55e"
+                                : "#ef4444"
+                            }
+                          />
+                        ) : (
+                          <span className="text-fg-mute text-[10px]">—</span>
+                        )}
+                      </span>
                     </Link>
                   </motion.div>
                 );
@@ -343,6 +395,7 @@ export default function ScoreboardPage() {
             </div>
            </div>
           </div>
+          </>
         )}
 
         {/* legend */}

@@ -9,16 +9,16 @@ const LINKS = [
   { href: "/scoreboard", label: "SCOREBOARD" },
   { href: "/positions", label: "POSITIONS" },
   { href: "/hire", label: "HIRE" },
-  { href: "/admin", label: "ADMIN" },
+  { href: "/verify", label: "VERIFY" },
 ] as const;
 
 export default function SiteNav({ active = "" }: { active?: string }) {
   return (
-    <header className="flex items-center justify-between border-b border-border-2 pb-5">
+    <header className="flex flex-col gap-4 border-b border-border-2 pb-5 sm:flex-row sm:items-center sm:justify-between">
       <Link href="/" className="transition-opacity hover:opacity-80">
         <Wordmark />
       </Link>
-      <nav className="flex items-center gap-6 text-[11px] tracking-widest">
+      <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] tracking-widest">
         {LINKS.map((l) => (
           <Link
             key={l.href}

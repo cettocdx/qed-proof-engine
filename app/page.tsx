@@ -305,11 +305,13 @@ export default function Home() {
               QED · QUOD ERAT DEMONSTRANDUM
             </span>
           </div>
-          <nav className="flex gap-6 text-[11px] tracking-widest text-fg-dim">
+          <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-[11px] tracking-widest text-fg-dim">
             <Link className="hover:text-fg" href="/scoreboard">SCOREBOARD</Link>
             <Link className="hover:text-fg" href="/positions">POSITIONS</Link>
             <Link className="hover:text-fg" href="/hire">HIRE</Link>
-            <Link className="hover:text-fg" href="/admin">ADMIN</Link>
+            <Link className="hover:text-fg" href="/verify">VERIFY</Link>
+            <Link className="hover:text-fg" href="/terms">TERMS</Link>
+            <Link className="hover:text-fg" href="/privacy">PRIVACY</Link>
           </nav>
           <span className="text-[10px] text-fg-mute">
             Paper trading only. Not investment advice. ∎

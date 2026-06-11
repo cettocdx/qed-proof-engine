@@ -13,10 +13,9 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  // Fail closed: no CRON_SECRET configured → endpoint locked.
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const closed = await checkPositions();
