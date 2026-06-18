@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/assets/logo.svg" width="96" height="96" alt="QED logo"/>
+
 ![QED — Every trade, proven](.github/assets/hero.svg)
 
 # QED ∎ — Proof Engine

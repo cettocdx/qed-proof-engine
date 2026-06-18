@@ -1,0 +1,62 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#070b14"/>
+      <stop offset="1" stop-color="#0a1628"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="128" y1="60" x2="128" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22d3ee" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M24 0H0V24" fill="none" stroke="#1e3a52" stroke-width="0.5" opacity="0.5"/>
+    </pattern>
+    <clipPath id="round">
+      <rect width="256" height="256" rx="48" ry="48"/>
+    </clipPath>
+  </defs>
+
+  <!-- background -->
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <rect width="256" height="256" rx="48" fill="url(#grid)" clip-path="url(#round)"/>
+
+  <!-- top cyan accent line -->
+  <rect x="0" y="0" width="256" height="2" rx="1" fill="#22d3ee" opacity="0.5"/>
+
+  <!-- glow behind text -->
+  <ellipse cx="128" cy="138" rx="72" ry="48" fill="url(#glow)"/>
+
+  <!-- QED wordmark -->
+  <text
+    x="128"
+    y="152"
+    font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+    font-size="72"
+    font-weight="700"
+    letter-spacing="-2"
+    text-anchor="middle"
+    fill="#f1f5f9"
+  >QED</text>
+
+  <!-- ∎ proof mark — cyan -->
+  <rect x="196" y="119" width="20" height="20" fill="url(#cyan)" rx="2"/>
+
+  <!-- tagline -->
+  <text
+    x="128"
+    y="186"
+    font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+    font-size="11"
+    letter-spacing="4"
+    text-anchor="middle"
+    fill="#5b7088"
+  >PROOF ENGINE</text>
+
+  <!-- bottom corner brackets — decorative -->
+  <path d="M24 232 L24 244 L36 244" stroke="#22d3ee" stroke-width="1.5" stroke-opacity="0.4" fill="none"/>
+  <path d="M232 232 L232 244 L220 244" stroke="#22d3ee" stroke-width="1.5" stroke-opacity="0.4" fill="none"/>
+</svg>
